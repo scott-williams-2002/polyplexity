@@ -6,6 +6,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export interface ThreadInfo {
   thread_id: string;
+  name: string | null;
   last_message: string | null;
   updated_at: string | null;
   message_count: number;
@@ -23,12 +24,43 @@ export interface SSEEvent {
   data?: any;
   response?: string;
   thread_id?: string;
+  timestamp?: number;
+  // Research agent specific events
+  decision?: "research" | "finish";
+  reasoning?: string;
+  topic?: string;
+  queries?: string[];
+  query?: string;
+  report?: string;
+  summary?: string;
+  name?: string;
+}
+
+export interface ExecutionTraceEvent {
+  type: "node_call" | "reasoning" | "search" | "state_update" | "custom";
+  node: string;
+  timestamp: number;
+  data: {
+    event?: string;
+    decision?: string;
+    reasoning?: string;
+    topic?: string;
+    queries?: string[];
+    query?: string;
+    results?: Array<{title: string; url: string}>;
+    update?: string;
+    count?: number;
+    value?: number;
+    report?: string;
+    [key: string]: any;
+  };
 }
 
 export interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp?: string | null;
+  execution_trace?: ExecutionTraceEvent[];
 }
 
 /**

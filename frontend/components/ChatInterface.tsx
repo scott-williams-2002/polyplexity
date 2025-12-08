@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { Item, ItemContent, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { ChatMessage, ChatMessageProps } from "./ChatMessage"
-import { streamChat, SSEEvent, getThreadHistory } from "@/lib/api"
+import { streamChat, SSEEvent, getThreadHistory, ExecutionTraceEvent } from "@/lib/api"
 
 interface Message extends ChatMessageProps {
   id: string
@@ -34,6 +34,8 @@ export function ChatInterface({
   >([])
   const [streamingContent, setStreamingContent] = React.useState("")
   const [loadingHistory, setLoadingHistory] = React.useState(false)
+  const [progressMessage, setProgressMessage] = React.useState<string | null>(null)
+  const [executionTrace, setExecutionTrace] = React.useState<ExecutionTraceEvent[]>([])
   const messagesEndRef = React.useRef<HTMLDivElement>(null)
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
   const loadedThreadIdRef = React.useRef<string | null>(null)
@@ -73,6 +75,7 @@ export function ChatInterface({
             role: msg.role as "user" | "assistant",
             content: msg.content,
             timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
+            execution_trace: msg.execution_trace,
           }))
           
           // Use functional update to ensure we replace, not append
@@ -109,17 +112,20 @@ export function ChatInterface({
     setCurrentThoughts([])
     setCurrentToolCalls([])
     setStreamingContent("")
+    setProgressMessage("Researching and generating response...")
+    setExecutionTrace([]) // Reset trace for new message
 
     let currentThreadId = threadId
     let assistantMessageId = `assistant-${Date.now()}`
     
-    // Add placeholder assistant message immediately
+    // Add placeholder assistant message immediately with execution_trace
     const placeholderMessage: Message = {
       id: assistantMessageId,
       role: "assistant",
       content: "",
       timestamp: new Date(),
       isStreaming: true,
+      execution_trace: [], // Initialize empty, will be updated as events come in
     }
     setMessages((prev) => [...prev, placeholderMessage])
 
@@ -128,15 +134,116 @@ export function ChatInterface({
         userMessage.content,
         currentThreadId,
         (event: SSEEvent) => {
+          // Log all incoming SSE events for debugging
+          console.log("SSE Event:", event)
+          
           // Handle thread_id event
           if (event.event === "thread_id" && event.thread_id) {
             currentThreadId = event.thread_id
             onThreadIdChange(event.thread_id)
           }
 
-          // Handle token events (streaming text)
-          if (event.event === "token" && event.content) {
-            setStreamingContent((prev) => prev + event.content)
+          // Handle thread_name event - trigger sidebar refresh when name is received
+          if (event.event === "thread_name" && event.name) {
+            // Trigger sidebar refresh by calling onMessageSent
+            // This will cause the sidebar to reload and show the new thread name
+            onMessageSent()
+          }
+
+          // Handle research agent events and add them to execution trace
+          if (event.event === "supervisor_decision") {
+            if (event.decision === "research" && event.topic) {
+              setProgressMessage(`Researching: ${event.topic}`)
+            } else if (event.decision === "finish") {
+              setProgressMessage("Writing final report...")
+            }
+            // Add to execution trace
+            const traceEvent: ExecutionTraceEvent = {
+              type: "custom",
+              node: "supervisor",
+              timestamp: Date.now(),
+              data: {
+                event: "supervisor_decision",
+                decision: event.decision,
+                reasoning: event.reasoning,
+                topic: event.topic || ""
+              }
+            }
+            setExecutionTrace((prev) => [...prev, traceEvent])
+          }
+
+          if (event.event === "generated_queries" && event.queries) {
+            setProgressMessage(`Generated ${event.queries.length} search queries...`)
+            // Add to execution trace
+            const traceEvent: ExecutionTraceEvent = {
+              type: "custom",
+              node: "generate_queries",
+              timestamp: Date.now(),
+              data: {
+                event: "generated_queries",
+                queries: event.queries
+              }
+            }
+            setExecutionTrace((prev) => [...prev, traceEvent])
+          }
+
+          if (event.event === "search_start" && event.query) {
+            setProgressMessage(`Searching: ${event.query}`)
+            // Add to execution trace
+            const traceEvent: ExecutionTraceEvent = {
+              type: "search",
+              node: "perform_search",
+              timestamp: Date.now(),
+              data: {
+                event: "search_start",
+                query: event.query
+              }
+            }
+            setExecutionTrace((prev) => [...prev, traceEvent])
+          }
+
+          if (event.event === "research_synthesis_done") {
+            setProgressMessage("Synthesizing research results...")
+            // Add to execution trace
+            const traceEvent: ExecutionTraceEvent = {
+              type: "custom",
+              node: "synthesize_research",
+              timestamp: Date.now(),
+              data: {
+                event: "research_synthesis_done"
+              }
+            }
+            setExecutionTrace((prev) => [...prev, traceEvent])
+          }
+
+          if (event.event === "writing_report") {
+            setProgressMessage("Writing final report...")
+            // Add to execution trace
+            const traceEvent: ExecutionTraceEvent = {
+              type: "custom",
+              node: "final_report",
+              timestamp: Date.now(),
+              data: {
+                event: "writing_report"
+              }
+            }
+            setExecutionTrace((prev) => [...prev, traceEvent])
+          }
+
+          if (event.event === "final_report_complete" && event.report) {
+            setStreamingContent(event.report)
+            setProgressMessage(null)
+            // Add to execution trace
+            const traceEvent: ExecutionTraceEvent = {
+              type: "custom",
+              node: "final_report",
+              timestamp: Date.now(),
+              data: {
+                event: "final_report_complete",
+                report: event.report
+              }
+            }
+            setExecutionTrace((prev) => [...prev, traceEvent])
           }
 
           // Handle thinking events
@@ -155,24 +262,37 @@ export function ChatInterface({
             ])
           }
 
-          // Handle response event (final response)
-          if (event.event === "response" && event.content) {
-            setStreamingContent(event.content)
+          // Handle trace events
+          if (event.event === "trace" && event.type && event.node) {
+            const traceEvent: ExecutionTraceEvent = {
+              type: event.type as ExecutionTraceEvent["type"],
+              node: event.node,
+              timestamp: event.timestamp || Date.now(),
+              data: event.data || {}
+            }
+            setExecutionTrace((prev) => [...prev, traceEvent])
           }
 
-          // Handle update events (state updates)
-          if (event.type === "update" && event.data) {
-            if (event.data.final_response) {
-              setStreamingContent(event.data.final_response)
+          // Handle update events (state updates) - incremental updates
+          if (event.type === "update" && event.node && event.data) {
+            // Incrementally update final_report as it streams in
+            if (event.node === "final_report" && event.data.final_report) {
+              setStreamingContent(event.data.final_report)
             }
-            if (event.data.conversation_history) {
-              // Conversation history updated
+            // Update progress for other nodes
+            if (event.node === "supervisor") {
+              setProgressMessage("Analyzing research needs...")
+            }
+            if (event.node === "call_researcher") {
+              setProgressMessage("Conducting research...")
             }
           }
 
           // Handle complete event
           if (event.type === "complete") {
+            // Use response from complete event, or fall back to streamingContent
             const finalContent = event.response || streamingContent || ""
+            setProgressMessage(null)
             setMessages((prev) => {
               // Filter out any duplicate messages with the same content that might have been added
               const seen = new Set<string>()
@@ -198,6 +318,7 @@ export function ChatInterface({
                   currentToolCalls.length > 0 ? [...currentToolCalls] : undefined,
                 timestamp: new Date(),
                 isStreaming: false,
+                execution_trace: executionTrace.length > 0 ? [...executionTrace] : undefined,
               }
 
               if (assistantIndex >= 0) {
@@ -217,6 +338,8 @@ export function ChatInterface({
             setStreamingContent("")
             setCurrentThoughts([])
             setCurrentToolCalls([])
+            setProgressMessage(null)
+            setExecutionTrace([])
             onMessageSent()
           }
 
@@ -233,6 +356,8 @@ export function ChatInterface({
             setStreamingContent("")
             setCurrentThoughts([])
             setCurrentToolCalls([])
+            setProgressMessage(null)
+            setExecutionTrace([])
           }
         }
       )
@@ -257,6 +382,8 @@ export function ChatInterface({
         setStreamingContent("")
         setCurrentThoughts([])
         setCurrentToolCalls([])
+        setProgressMessage(null)
+        setExecutionTrace([])
         onMessageSent()
       }
     } catch (error) {
@@ -272,6 +399,8 @@ export function ChatInterface({
       setStreamingContent("")
       setCurrentThoughts([])
       setCurrentToolCalls([])
+      setProgressMessage(null)
+      setExecutionTrace([])
     }
   }
 
@@ -282,9 +411,10 @@ export function ChatInterface({
     }
   }
 
-  // Update assistant message while streaming
+  // Update assistant message while streaming (incremental updates)
+  // This includes updating execution trace even when content is empty
   React.useEffect(() => {
-    if (isStreaming && streamingContent) {
+    if (isStreaming) {
       setMessages((prev) => {
         const updated = [...prev]
         // Find the last assistant message that's streaming
@@ -293,32 +423,35 @@ export function ChatInterface({
           if (updated[i].role === "assistant" && updated[i].isStreaming) {
             updated[i] = {
               ...updated[i],
-              content: streamingContent,
+              content: streamingContent || "",
               thoughts: currentThoughts.length > 0 ? [...currentThoughts] : undefined,
               toolCalls:
                 currentToolCalls.length > 0 ? [...currentToolCalls] : undefined,
+              execution_trace: [...executionTrace], // Always set, even if empty, so updates are visible
+              isStreaming: true,
             }
             foundStreaming = true
             break
           }
         }
-        // If no streaming message found, add a new one
+        // If no streaming message found, add a new one (even if content is empty, to show trace)
         if (!foundStreaming) {
           updated.push({
             id: `assistant-streaming-${Date.now()}`,
             role: "assistant",
-            content: streamingContent,
+            content: streamingContent || "",
             thoughts: currentThoughts.length > 0 ? [...currentThoughts] : undefined,
             toolCalls:
               currentToolCalls.length > 0 ? [...currentToolCalls] : undefined,
             timestamp: new Date(),
             isStreaming: true,
+            execution_trace: [...executionTrace], // Always set, even if empty, so updates are visible
           })
         }
         return updated
       })
     }
-  }, [streamingContent, isStreaming, currentThoughts, currentToolCalls])
+  }, [streamingContent, isStreaming, currentThoughts, currentToolCalls, executionTrace])
 
   return (
     <div className="flex flex-col h-full">
@@ -343,13 +476,23 @@ export function ChatInterface({
         {messages.map((message) => (
           <ChatMessage key={message.id} {...message} />
         ))}
-        {isStreaming && (
+        {isStreaming && progressMessage && (
           <Item variant="muted" className="max-w-xs">
             <ItemMedia>
               <Spinner />
             </ItemMedia>
             <ItemContent>
-              <ItemTitle className="line-clamp-1">Processing...</ItemTitle>
+              <ItemTitle className="line-clamp-1">{progressMessage}</ItemTitle>
+            </ItemContent>
+          </Item>
+        )}
+        {isStreaming && !progressMessage && (
+          <Item variant="muted" className="max-w-xs">
+            <ItemMedia>
+              <Spinner />
+            </ItemMedia>
+            <ItemContent>
+              <ItemTitle className="line-clamp-1">Researching and generating response...</ItemTitle>
             </ItemContent>
           </Item>
         )}

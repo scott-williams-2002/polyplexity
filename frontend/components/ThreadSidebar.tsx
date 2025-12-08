@@ -172,7 +172,7 @@ export function ThreadSidebar({
                       >
                         <div className="flex flex-col gap-1">
                           <div className="text-sm font-medium line-clamp-1">
-                            {thread.last_message || "New thread"}
+                            {thread.name || thread.last_message || "New thread"}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {thread.message_count} {thread.message_count === 1 ? "message" : "messages"}
