@@ -202,6 +202,32 @@ export function ChatInterface({
             setExecutionTrace((prev) => [...prev, traceEvent])
           }
 
+          if (event.event === "web_search_url" && event.url) {
+            console.log("Processing web_search_url event in frontend:", event);
+            // Update progress with the formatted markdown or just the domain if we parsed it
+            // We use the markdown display part for the progress message if possible
+            let display = event.url;
+            if (event.markdown) {
+               // Extract display text from [text](url)
+               const match = event.markdown.match(/^\[(.*?)\]/);
+               if (match) display = match[1];
+            }
+            setProgressMessage(`Found source: ${display}`)
+            
+            // Add to execution trace
+            const traceEvent: ExecutionTraceEvent = {
+              type: "custom", // Storing as custom event
+              node: "perform_search",
+              timestamp: Date.now(),
+              data: {
+                event: "web_search_url",
+                url: event.url,
+                markdown: event.markdown
+              }
+            }
+            setExecutionTrace((prev) => [...prev, traceEvent])
+          }
+
           if (event.event === "research_synthesis_done") {
             setProgressMessage("Synthesizing research results...")
             // Add to execution trace

@@ -24,12 +24,23 @@ class SupervisorDecision(BaseModel):
     Used by the supervisor node to structure the LLM's decision about
     whether to continue researching or finish and generate the final report.
     """
-    next_step: Literal["research", "finish"] = Field(
-        description="Choose 'research' if more information is needed, 'finish' if you have sufficient information."
+    next_step: Literal["research", "finish", "clarify"] = Field(
+        description="Choose 'research' if more information is needed, 'finish' if you have sufficient information, or 'clarify' if input is ambiguous."
     )
     research_topic: str = Field(
-        description="If researching, the specific topic to investigate next. If finishing, leave empty.",
+        description="If researching, the specific topic to investigate next. If finishing, clarifying, or answering directly, leave empty.",
         default=""
+    )
+    research_iterations: int = Field(
+        description="Number of research iterations needed. -1 for clarification, 0 for direct answer, 1-3 for research loops.",
+        ge=-1,
+        le=3
+    )
+    query_breadth: int = Field(
+        description="Depth of research (Tavily results per query). Standard is 3-5.",
+        ge=3,
+        le=5,
+        default=4
     )
     reasoning: str = Field(description="Brief reasoning for the decision.")
 

@@ -19,7 +19,7 @@ from .prompts import (
 )
 from .prompts.research_prompts import RESEARCH_SYNTHESIS_PROMPT_TEMPLATE
 from .states import ResearcherState
-from .utils.helpers import create_llm_model, format_date, log_node_state
+from .utils.helpers import create_llm_model, format_date, log_node_state, format_search_url_markdown
 
 # Global state logger instance
 _state_logger: Optional[object] = None
@@ -47,9 +47,9 @@ def _generate_queries_llm(state: ResearcherState) -> SearchQueries:
     return model.invoke([SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)])
 
 
-def _perform_search_tavily(query: str) -> Dict[str, Any]:
+def _perform_search_tavily(query: str, max_results: int = 2) -> Dict[str, Any]:
     """Execute Tavily search."""
-    tool = TavilySearch(max_results=2, topic="general")
+    tool = TavilySearch(max_results=max_results, topic="general")
     return tool.invoke({"query": query})
 
 
@@ -111,19 +111,41 @@ def perform_search_node(state: dict):
         query = state["query"]
         log_node_state(_state_logger, "perform_search", "SUBGRAPH", dict(state), "BEFORE", additional_info=f"Search query: {query}")
         
+        # This node receives a dict from Send(), which might not have query_breadth
+        # But wait, Send() only sends what we give it.
+        # We need to update map_queries to pass query_breadth if it's not in 'state' (which is just the payload)
+        # However, 'state' here IS the payload.
+        # So map_queries needs to send it.
+        
+        # But wait, perform_search_node input is the state of the *node*, which is just the payload from Send.
+        # It's not the full ResearcherState.
+        
+        # Let's check if query_breadth is in the payload. It should be if we update map_queries.
+        # For now, default to 2 if missing.
+        max_results = state.get("query_breadth", 2)
+        
         writer = get_stream_writer()
-        node_call_event = create_trace_event("node_call", "perform_search", {"query": query})
+        node_call_event = create_trace_event("node_call", "perform_search", {"query": query, "max_results": max_results})
         search_start_event = create_trace_event("search", "perform_search", {"event": "search_start", "query": query})
         
         writer({"event": "trace", **node_call_event})
         writer({"event": "trace", **search_start_event})
         writer({"event": "search_start", "query": query})
         
-        results = _perform_search_tavily(query)
+        results = _perform_search_tavily(query, max_results=max_results)
         search_results_list = [{"title": r.get('title', 'Untitled'), "url": r.get('url', '')} for r in results.get("results", [])]
         search_results_event = create_trace_event("search", "perform_search", {"results": search_results_list})
         
         writer({"event": "trace", **search_results_event})
+        
+        # Emit formatted web_search_url events for frontend display
+        for res in results.get("results", []):
+            url = res.get('url', '')
+            if url:
+                markdown = format_search_url_markdown(url)
+                print(f"[DEBUG] Emitting web_search_url from researcher node: {url}")
+                writer({"event": "web_search_url", "url": url, "markdown": markdown})
+        
         content = _format_search_results(results, query)
         
         log_node_state(_state_logger, "perform_search", "SUBGRAPH", {**state, "search_results": [content]}, "AFTER", additional_info=f"Found {len(results.get('results', []))} results")
@@ -161,7 +183,8 @@ def synthesize_research_node(state: ResearcherState):
 
 def map_queries(state: ResearcherState):
     """Maps queries to parallel search node invocations."""
-    return [Send("perform_search", {"query": q}) for q in state["queries"]]
+    breadth = state.get("query_breadth", 2)
+    return [Send("perform_search", {"query": q, "query_breadth": breadth}) for q in state["queries"]]
 
 
 def build_researcher_subgraph():

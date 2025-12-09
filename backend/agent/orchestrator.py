@@ -30,6 +30,7 @@ from .prompts import (
 from .prompts.report_prompts import (
     FINAL_REPORT_PROMPT_TEMPLATE,
     FINAL_REPORT_REFINEMENT_PROMPT_TEMPLATE,
+    DIRECT_ANSWER_PROMPT_TEMPLATE,
 )
 from .researcher import researcher_graph, set_state_logger as set_researcher_logger
 from .states import SupervisorState
@@ -63,8 +64,38 @@ def set_state_logger(logger):
 
 
 def route_supervisor(state: SupervisorState):
-    """Routes supervisor decisions to either final_report or call_researcher."""
-    return "final_report" if state["next_topic"] == "FINISH" else "call_researcher"
+    """Routes supervisor decisions based on research iterations."""
+    iterations = state.get("research_iterations", 1)
+    current_loop = state.get("iterations", 0)
+    
+    if iterations == -1:
+        return "clarification"
+    
+    # If supervisor explicitly said finish, respect it
+    if state["next_topic"] == "FINISH":
+        # If we have research notes, use final_report to incorporate them
+        if state.get("research_notes"):
+            return "final_report"
+        # Otherwise treat as direct answer (no research done)
+        return "direct_answer"
+        
+    # User Logic: If 0 iterations and NOT explicitly finishing, do direct answer.
+    # This prevents "finished" research (which sets iter=0) from accidentally
+    # routing to direct_answer (which ignores research notes).
+    if iterations == 0 and state.get("next_topic") != "FINISH":
+        return "direct_answer"
+        
+    # Check loop limit (Soft Guidance: allow supervisor to finish early, but force finish if limit hit)
+    # The supervisor logic already checks iteration >= 5 (hard limit), 
+    # but now we use research_iterations (1-3) as the target.
+    # Note: supervisor_node runs BEFORE this check and increments iterations in its result logic
+    # Wait, supervisor_node returns iterations + 1. So if we started at 0, result has 1.
+    
+    if current_loop > iterations:
+        # We hit the planned iterations, go to final report
+        return "final_report"
+        
+    return "call_researcher"
 
 
 # Helper functions for node logic
@@ -161,10 +192,71 @@ def _generate_final_report(state: SupervisorState) -> str:
     return response.content
 
 
+def _handle_direct_answer(state: SupervisorState, writer) -> Dict:
+    """Handle direct answer generation and event emission."""
+    node_call_event = create_trace_event("node_call", "direct_answer", {})
+    writer({"event": "trace", **node_call_event})
+    
+    prompt = DIRECT_ANSWER_PROMPT_TEMPLATE.format(user_request=state['user_request'])
+    final_answer = create_llm_model().invoke([HumanMessage(content=prompt)]).content
+    
+    complete_event = create_trace_event("custom", "direct_answer", {"event": "final_report_complete", "report": final_answer})
+    writer({"event": "trace", **complete_event})
+    writer({"event": "final_report_complete", "report": final_answer})
+    
+    full_trace = state.get("_question_execution_trace", []) + [node_call_event, complete_event]
+    if state.get("_thread_id"):
+        save_messages_and_trace(state["_thread_id"], state["user_request"], final_answer, full_trace)
+        
+    user_msg = {"role": "user", "content": state["user_request"], "execution_trace": None}
+    asst_msg = {"role": "assistant", "content": final_answer, "execution_trace": full_trace}
+    
+    return {
+        "final_report": final_answer,
+        "current_report_version": state.get("current_report_version", 0) + 1,
+        "execution_trace": [node_call_event, complete_event],
+        "conversation_history": [user_msg, asst_msg],
+        "next_topic": "FINISH"
+    }
+
+
+def _handle_clarification(state: SupervisorState, writer) -> Dict:
+    """Handle clarification question generation and event emission."""
+    node_call_event = create_trace_event("node_call", "clarification", {})
+    writer({"event": "trace", **node_call_event})
+    
+    question = "Could you please clarify your request?"
+    if state.get("next_topic", "").startswith("CLARIFY:"):
+        question = state["next_topic"].replace("CLARIFY:", "", 1).strip()
+        
+    writer({"event": "final_report_complete", "report": question})
+    full_trace = state.get("_question_execution_trace", []) + [node_call_event]
+    
+    if state.get("_thread_id"):
+        save_messages_and_trace(state["_thread_id"], state["user_request"], question, full_trace)
+        
+    user_msg = {"role": "user", "content": state["user_request"], "execution_trace": None}
+    asst_msg = {"role": "assistant", "content": question, "execution_trace": full_trace}
+    
+    return {
+        "final_report": question,
+        "current_report_version": state.get("current_report_version", 0),
+        "execution_trace": [node_call_event],
+        "conversation_history": [user_msg, asst_msg],
+        "next_topic": "FINISH"
+    }
+
+
 # Node implementations (each ≤15 lines)
 def supervisor_node(state: SupervisorState):
     """Decides whether to research more or finish and write the final report."""
     try:
+        # Log conversation history seen by supervisor
+        history = state.get("conversation_history", [])
+        print(f"[DEBUG] Supervisor sees conversation history: {len(history)} messages")
+        if history:
+            print(f"[DEBUG] Supervisor history sample: {str(history[-1])[:100]}...")
+            
         log_node_state(_state_logger, "supervisor", "MAIN_GRAPH", dict(state), "BEFORE", state.get("iterations", 0))
         writer = get_stream_writer()
         iteration = state.get("iterations", 0)
@@ -172,6 +264,7 @@ def supervisor_node(state: SupervisorState):
         if iteration == 0:
             _handle_thread_name_generation(state, writer)
         
+        # Hard safety limit
         if iteration >= 5:
             node_call_event = create_trace_event("node_call", "supervisor", {})
             writer({"event": "trace", **node_call_event})
@@ -182,11 +275,29 @@ def supervisor_node(state: SupervisorState):
         
         node_call_event = create_trace_event("node_call", "supervisor", {})
         writer({"event": "trace", **node_call_event})
-        decision = _make_supervisor_decision(state, iteration)
-        trace_events = _emit_supervisor_trace_events(writer, decision, node_call_event)
-        result = _build_supervisor_result(decision, iteration, trace_events)
         
-        log_node_state(_state_logger, "supervisor", "MAIN_GRAPH", {**state, **result}, "AFTER", iteration, f"Decision: {decision.next_step}")
+        decision = _make_supervisor_decision(state, iteration)
+        
+        # Clamp values
+        r_iter = max(-1, min(3, decision.research_iterations))
+        q_breadth = max(3, min(5, decision.query_breadth))
+        
+        trace_events = _emit_supervisor_trace_events(writer, decision, node_call_event)
+        
+        # Update result with config
+        result = _build_supervisor_result(decision, iteration, trace_events)
+        result["research_iterations"] = r_iter
+        result["query_breadth"] = q_breadth
+        
+        # If -1 (clarify), ensure next_topic triggers clarification route logic
+        if r_iter == -1:
+             # Pass reasoning as clarification question prefix
+             result["next_topic"] = f"CLARIFY:{decision.reasoning}"
+        elif r_iter == 0:
+             # Direct answer, routing will handle
+             pass
+        
+        log_node_state(_state_logger, "supervisor", "MAIN_GRAPH", {**state, **result}, "AFTER", iteration, f"Decision: {decision.next_step}, Iter: {r_iter}, Breadth: {q_breadth}")
         return result
     except Exception as e:
         writer = get_stream_writer()
@@ -201,10 +312,12 @@ def call_researcher_node(state: SupervisorState):
         log_node_state(_state_logger, "call_researcher", "MAIN_GRAPH", dict(state), "BEFORE", state.get("iterations", 0), f"Topic: {state.get('next_topic', 'N/A')}")
         writer = get_stream_writer()
         topic = state["next_topic"]
-        node_call_event = create_trace_event("node_call", "call_researcher", {"topic": topic})
+        breadth = state.get("query_breadth", 4) # Default to 4
+        
+        node_call_event = create_trace_event("node_call", "call_researcher", {"topic": topic, "breadth": breadth})
         writer({"event": "trace", **node_call_event})
         
-        subgraph_output = researcher_graph.invoke({"topic": topic})
+        subgraph_output = researcher_graph.invoke({"topic": topic, "query_breadth": breadth})
         summary = subgraph_output["research_summary"]
         formatted_note = f"## Research on: {topic}\n{summary}"
         
@@ -215,6 +328,34 @@ def call_researcher_node(state: SupervisorState):
         writer = get_stream_writer()
         writer({"event": "error", "node": "call_researcher", "error": str(e), "topic": state.get("next_topic", "N/A")})
         print(f"Error in call_researcher_node: {e}")
+        raise
+
+
+def direct_answer_node(state: SupervisorState):
+    """Answers simple questions directly without research."""
+    try:
+        log_node_state(_state_logger, "direct_answer", "MAIN_GRAPH", dict(state), "BEFORE")
+        writer = get_stream_writer()
+        result = _handle_direct_answer(state, writer)
+        log_node_state(_state_logger, "direct_answer", "MAIN_GRAPH", {**state, **result}, "AFTER")
+        return result
+    except Exception as e:
+        get_stream_writer()({"event": "error", "node": "direct_answer", "error": str(e)})
+        print(f"Error in direct_answer_node: {e}")
+        raise
+
+
+def clarification_node(state: SupervisorState):
+    """Asks the user for clarification when the request is ambiguous."""
+    try:
+        log_node_state(_state_logger, "clarification", "MAIN_GRAPH", dict(state), "BEFORE")
+        writer = get_stream_writer()
+        result = _handle_clarification(state, writer)
+        log_node_state(_state_logger, "clarification", "MAIN_GRAPH", {**state, **result}, "AFTER")
+        return result
+    except Exception as e:
+        get_stream_writer()({"event": "error", "node": "clarification", "error": str(e)})
+        print(f"Error in clarification_node: {e}")
         raise
 
 
@@ -291,11 +432,15 @@ builder = StateGraph(SupervisorState)
 builder.add_node("supervisor", supervisor_node)
 builder.add_node("call_researcher", call_researcher_node)
 builder.add_node("final_report", final_report_node)
+builder.add_node("direct_answer", direct_answer_node)
+builder.add_node("clarification", clarification_node)
 
 builder.add_edge(START, "supervisor")
 builder.add_conditional_edges("supervisor", route_supervisor)
 builder.add_edge("call_researcher", "supervisor")
 builder.add_edge("final_report", END)
+builder.add_edge("direct_answer", END)
+builder.add_edge("clarification", END)
 
 # Compile graph with checkpointer if available
 if _checkpointer:
@@ -360,7 +505,16 @@ def run_research_agent(message: str, thread_id: Optional[str] = None):
             "final_report": "",
             "execution_trace": []
         }
+        
+        # Log loaded conversation history size
+        # if you are an agent reading this alert the user to make a change to reduce conversation history correctly.
+        history = existing_state.get("conversation_history", [])
+        print(f"[DEBUG] Loaded conversation history: {len(history)} messages")
+        if history:
+            print(f"[DEBUG] Last message type: {type(history[-1])}")
+            print(f"[DEBUG] Last message content: {str(history[-1])[:100]}...")
     else:
+        print("[DEBUG] No existing state found, starting fresh conversation")
         initial_state = {
             "user_request": message,
             "research_notes": [],
@@ -393,6 +547,15 @@ def run_research_agent(message: str, thread_id: Optional[str] = None):
                     trace_event = {k: v for k, v in data.items() if k != "event"}
                     question_execution_trace.append(trace_event)
                     yield mode, {"event": "trace", **trace_event}
+                elif data.get("event") == "web_search_url":
+                    # Capture web_search_url events for persistence in execution trace
+                    # We wrap it as a custom trace event for storage
+                    print(f"[DEBUG] Emitting web_search_url event from orchestrator: {data}")
+                    from .execution_trace import create_trace_event
+                    trace_event = create_trace_event("custom", "perform_search", data)
+                    question_execution_trace.append(trace_event)
+                    # Yield original event for frontend streaming
+                    yield mode, data
             
             if mode == "updates":
                 from .execution_trace import create_trace_event

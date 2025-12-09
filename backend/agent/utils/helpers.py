@@ -5,6 +5,7 @@ Extracted from node implementations to keep nodes concise and maintainable.
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 from langchain_core.messages import HumanMessage
 from langchain_groq import ChatGroq
@@ -226,3 +227,23 @@ def ensure_trace_completeness(
         import traceback
         traceback.print_exc()
 
+
+def format_search_url_markdown(url: str) -> str:
+    """
+    Format a URL into a markdown link with a clean display domain.
+    
+    Args:
+        url: The full URL to format (e.g., 'https://www.example.com/path')
+        
+    Returns:
+        Markdown string (e.g., '[example.com](https://www.example.com/path)')
+    """
+    try:
+        parsed = urlparse(url)
+        domain = parsed.netloc
+        if domain.startswith("www."):
+            domain = domain[4:]
+        return f"[{domain}]({url})"
+    except Exception:
+        # Fallback for invalid URLs
+        return f"[{url}]({url})"

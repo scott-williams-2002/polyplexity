@@ -47,3 +47,6 @@ FORMATTING REQUIREMENTS:
 - Preserve all source links from both old and new research notes
 - Clearly indicate what's new vs. what was already covered"""
 
+
+DIRECT_ANSWER_PROMPT_TEMPLATE = """You are a helpful assistant. Answer the user's request directly.
+User Request: {user_request}"""

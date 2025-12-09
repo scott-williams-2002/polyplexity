@@ -34,6 +34,8 @@ export interface SSEEvent {
   report?: string;
   summary?: string;
   name?: string;
+  url?: string;
+  markdown?: string;
 }
 
 export interface ExecutionTraceEvent {
@@ -52,6 +54,8 @@ export interface ExecutionTraceEvent {
     count?: number;
     value?: number;
     report?: string;
+    url?: string;
+    markdown?: string;
     [key: string]: any;
   };
 }
@@ -228,4 +232,3 @@ export async function healthCheck(): Promise<boolean> {
     return false;
   }
 }
-
