@@ -5,7 +5,7 @@ Captures full state dumps before and after each node execution.
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
 class StateLogger:

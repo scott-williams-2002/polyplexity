@@ -3,7 +3,7 @@ State definitions for the research agent graph system.
 Uses TypedDict for type safety and Annotated reducers for state accumulation.
 """
 import operator
-from typing import TypedDict, Annotated, List, Optional
+from typing import Annotated, List, Optional, TypedDict
 
 
 class ResearcherState(TypedDict):

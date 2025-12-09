@@ -4,9 +4,10 @@ Handles connection string creation and PostgresSaver initialization.
 """
 import os
 from typing import Optional
-from langgraph.checkpoint.postgres import PostgresSaver
 
 from dotenv import load_dotenv
+from langgraph.checkpoint.postgres import PostgresSaver
+
 load_dotenv()
 
 def get_postgres_connection_string() -> Optional[str]:
@@ -38,10 +39,18 @@ def create_checkpointer() -> Optional[PostgresSaver]:
         return None
     
     try:
+        # PostgresSaver uses psycopg directly, so it needs postgresql:// format
+        # Convert postgresql+psycopg:// back to postgresql:// if needed
+        if conn_string.startswith("postgresql+psycopg://"):
+            conn_string = conn_string.replace("postgresql+psycopg://", "postgresql://", 1)
+        
         # PostgresSaver.from_conn_string() returns a context manager
         # We need to keep the context manager alive and enter it
         _checkpointer_context = PostgresSaver.from_conn_string(conn_string)
         checkpointer = _checkpointer_context.__enter__()
+        print(f"✓ PostgresSaver checkpointer created successfully")
+        print(f"  Checkpointer type: {type(checkpointer)}")
+        print(f"  Has setup method: {hasattr(checkpointer, 'setup')}")
         # Setup will be called separately to ensure it's only called once
         return checkpointer
     except Exception as e:

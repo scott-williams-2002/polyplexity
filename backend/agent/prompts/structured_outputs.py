@@ -3,6 +3,10 @@ Prompts for structured output generation with Groq.
 These prompts explicitly instruct the model to use JSON output format.
 """
 
+from typing import List, Literal
+
+from pydantic import BaseModel, Field
+
 QUERY_GENERATION_SYSTEM_PROMPT = """You are a Query Planner that transforms a user's question into a small set of distinct, high-value search queries.
 
 Your goal: produce queries that cover *different angles* of the user's intent, not rephrased variants of the same query.

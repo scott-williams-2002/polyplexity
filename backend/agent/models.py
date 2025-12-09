@@ -3,6 +3,7 @@ Pydantic models for structured outputs used by the research agent.
 These models define the schema for LLM responses that require structured formatting.
 """
 from typing import List, Literal
+
 from pydantic import BaseModel, Field
 
 

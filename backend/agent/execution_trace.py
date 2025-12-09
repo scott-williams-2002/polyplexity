@@ -3,7 +3,7 @@ Execution trace management for LangGraph agent system.
 Handles creation, storage, and retrieval of execution trace events.
 """
 import time
-from typing import Dict, Any, List, Optional, Literal
+from typing import Any, Dict, List, Literal, Optional
 
 TraceEventType = Literal["node_call", "reasoning", "search", "state_update", "custom"]
 
