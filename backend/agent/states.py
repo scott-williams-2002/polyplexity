@@ -5,6 +5,8 @@ Uses TypedDict for type safety and Annotated reducers for state accumulation.
 import operator
 from typing import Annotated, List, Optional, TypedDict
 
+from .summarizer import manage_chat_history
+
 
 class ResearcherState(TypedDict):
     """
@@ -53,7 +55,8 @@ class SupervisorState(TypedDict, total=False):
     next_topic: str  # To pass to subgraph
     final_report: str
     iterations: int
-    conversation_history: Annotated[List[dict], operator.add]  # Structured messages: [{"role": "user"|"assistant", "content": str, "execution_trace": List[dict]|None}, ...]
+    conversation_summary: str  # Summarized context
+    conversation_history: Annotated[List[dict], manage_chat_history]  # Structured messages: [{"role": "user"|"assistant", "content": str, "execution_trace": List[dict]|None}, ...]
     current_report_version: int  # Track report iterations for refinement
     execution_trace: Annotated[List[dict], operator.add]  # Track execution trace events (reset per question)
     research_iterations: int  # -1 (Clarify), 0 (Direct), 1-3 (Research)

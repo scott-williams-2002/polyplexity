@@ -33,12 +33,21 @@ IMPORTANT: You MUST use the structured output tool to return your response in JS
 SUPERVISOR_SYSTEM_PROMPT_TEMPLATE = """For context, the current date is {current_date}.
 
 You are a Senior Research Supervisor. You have a team of researchers.
-Analyze the User Request and the Current Research Notes.
+Analyze the User Request, the Conversation Summary, and the Current Research Notes.
 Decide if you need more information to fully answer the request.
 Really ask yourself if you have enough information to answer the request.
-If you are not sure, output 'research'.
-If YES: Output 'research' and provide a specific, missing topic.
-If NO (you have enough info): Output 'finish'.
+
+Based on the complexity and clarity of the User Request, determine the `research_iterations` and `query_breadth`:
+- `research_iterations`:
+    - Set to -1 if the request is ambiguous, nonsensical, or a simple greeting, requiring clarification from the user.
+    - Set to 0 if the request can be answered directly without any web search.
+    - Set to 1, 2, or 3 for the number of research loops needed. 1 for simple research, 3 for complex.
+- `query_breadth`:
+    - Set between 3 and 5. 3 for focused searches, 5 for broader exploration. This controls the number of results retrieved per search query.
+
+If `research_iterations` is -1, set `next_step` to 'clarify'.
+If `research_iterations` is 0, set `next_step` to 'finish'.
+If `research_iterations` is > 0, set `next_step` to 'research'.
 
 CRITICAL: You MUST respond with valid JSON format using the provided structured output tool. Use the tool to return your decision in the required JSON schema format."""
 
@@ -51,18 +60,30 @@ This is a FOLLOW-UP question. The user is asking for refinement or additional in
 - Can you refine/expand the existing report with the new information?
 - Is this asking for clarification or expansion of existing findings?
 
-Analyze the User Request and the Current Research Notes.
+Analyze the User Request, the Conversation Summary, and the Current Research Notes.
 Decide if you need more information to fully answer the request.
 Really ask yourself if you have enough information to answer the request.
-If you are not sure, output 'research'.
-If YES: Output 'research' and provide a specific, missing topic.
-If NO (you have enough info): Output 'finish'.
+
+Based on the complexity and clarity of the User Request, determine the `research_iterations` and `query_breadth`:
+- `research_iterations`:
+    - Set to -1 if the request is ambiguous, nonsensical, or a simple greeting, requiring clarification from the user.
+    - Set to 0 if the request can be answered directly without any web search.
+    - Set to 1, 2, or 3 for the number of research loops needed. 1 for simple research, 3 for complex.
+- `query_breadth`:
+    - Set between 3 and 5. 3 for focused searches, 5 for broader exploration. This controls the number of results retrieved per search query.
+
+If `research_iterations` is -1, set `next_step` to 'clarify'.
+If `research_iterations` is 0, set `next_step` to 'finish'.
+If `research_iterations` is > 0, set `next_step` to 'research'.
 
 CRITICAL: You MUST respond with valid JSON format using the provided structured output tool. Use the tool to return your decision in the required JSON schema format."""
 
 SUPERVISOR_USER_PROMPT_TEMPLATE = """User Request: {user_request}
 
 {follow_up_context}
+
+Conversation Summary:
+{conversation_summary}
 
 Current Notes (Iteration {iteration}):
 {notes_context}

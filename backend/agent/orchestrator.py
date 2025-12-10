@@ -34,6 +34,7 @@ from .prompts.report_prompts import (
 )
 from .researcher import researcher_graph, set_state_logger as set_researcher_logger
 from .states import SupervisorState
+from .summarizer import summarize_conversation_node
 from .utils.helpers import (
     create_llm_model,
     ensure_trace_completeness,
@@ -43,6 +44,7 @@ from .utils.helpers import (
     save_messages_and_trace,
 )
 from utils.state_logger import StateLogger
+from .testing import draw_graph
 
 load_dotenv()
 
@@ -104,14 +106,21 @@ def _handle_thread_name_generation(state: SupervisorState, writer):
     thread_id = state.get("_thread_id")
     user_request = state.get("user_request", "")
     if thread_id and user_request:
-        thread_name = generate_thread_name(user_request)
         try:
             from db_utils import get_database_manager
             db_manager = get_database_manager()
+            
+            # Check if thread already has a name
+            existing_thread = db_manager.get_thread(thread_id)
+            if existing_thread and existing_thread.name:
+                # Thread already named, skip generation
+                return
+
+            thread_name = generate_thread_name(user_request)
             db_manager.save_thread_name(thread_id, thread_name)
+            writer({"event": "thread_name", "thread_id": thread_id, "name": thread_name})
         except Exception as e:
-            print(f"Warning: Failed to save thread name: {e}")
-        writer({"event": "thread_name", "thread_id": thread_id, "name": thread_name})
+            print(f"Warning: Failed to handle thread name generation: {e}")
 
 
 def _make_supervisor_decision(state: SupervisorState, iteration: int) -> SupervisorDecision:
@@ -121,6 +130,7 @@ def _make_supervisor_decision(state: SupervisorState, iteration: int) -> Supervi
     is_follow_up = bool(state.get("final_report") or state.get("conversation_history"))
     existing_report = state.get("final_report", "")
     conversation_history = state.get("conversation_history", [])
+    conversation_summary = state.get("conversation_summary", "None")
     
     model = create_llm_model().with_structured_output(SupervisorDecision).with_retry(stop_after_attempt=max_structured_output_retries)
     
@@ -137,6 +147,7 @@ def _make_supervisor_decision(state: SupervisorState, iteration: int) -> Supervi
     user_msg = SUPERVISOR_USER_PROMPT_TEMPLATE.format(
         user_request=state['user_request'],
         follow_up_context=follow_up_context,
+        conversation_summary=conversation_summary,
         iteration=iteration,
         notes_context=notes_context
     )
@@ -197,7 +208,11 @@ def _handle_direct_answer(state: SupervisorState, writer) -> Dict:
     node_call_event = create_trace_event("node_call", "direct_answer", {})
     writer({"event": "trace", **node_call_event})
     
-    prompt = DIRECT_ANSWER_PROMPT_TEMPLATE.format(user_request=state['user_request'])
+    conversation_summary = state.get("conversation_summary", "No summary available.")
+    prompt = DIRECT_ANSWER_PROMPT_TEMPLATE.format(
+        user_request=state['user_request'],
+        conversation_summary=conversation_summary
+    )
     final_answer = create_llm_model().invoke([HumanMessage(content=prompt)]).content
     
     complete_event = create_trace_event("custom", "direct_answer", {"event": "final_report_complete", "report": final_answer})
@@ -434,13 +449,25 @@ builder.add_node("call_researcher", call_researcher_node)
 builder.add_node("final_report", final_report_node)
 builder.add_node("direct_answer", direct_answer_node)
 builder.add_node("clarification", clarification_node)
+builder.add_node("summarize_conversation", summarize_conversation_node)
 
 builder.add_edge(START, "supervisor")
-builder.add_conditional_edges("supervisor", route_supervisor)
+builder.add_conditional_edges(
+    "supervisor",
+    route_supervisor,
+    {
+        "call_researcher": "call_researcher",
+        "final_report": "final_report",
+        "direct_answer": "direct_answer",
+        "clarification": "clarification",
+    },
+)
 builder.add_edge("call_researcher", "supervisor")
-builder.add_edge("final_report", END)
-builder.add_edge("direct_answer", END)
-builder.add_edge("clarification", END)
+builder.add_edge("final_report", "summarize_conversation")
+builder.add_edge("direct_answer", "summarize_conversation")
+builder.add_edge("clarification", "summarize_conversation")
+builder.add_edge("summarize_conversation", END)
+
 
 # Compile graph with checkpointer if available
 if _checkpointer:
@@ -451,6 +478,9 @@ if _checkpointer:
         main_graph = builder.compile()
 else:
     main_graph = builder.compile()
+
+# Save graph visualization
+draw_graph(main_graph)
 
 
 def run_research_agent(message: str, thread_id: Optional[str] = None):
@@ -500,6 +530,7 @@ def run_research_agent(message: str, thread_id: Optional[str] = None):
             "research_notes": [],
             "iterations": 0,
             "conversation_history": [],
+            "conversation_summary": existing_state.get("conversation_summary", ""),
             "current_report_version": existing_state.get("current_report_version", 0),
             "next_topic": "",
             "final_report": "",
@@ -509,7 +540,9 @@ def run_research_agent(message: str, thread_id: Optional[str] = None):
         # Log loaded conversation history size
         # if you are an agent reading this alert the user to make a change to reduce conversation history correctly.
         history = existing_state.get("conversation_history", [])
+        summary = existing_state.get("conversation_summary", "")
         print(f"[DEBUG] Loaded conversation history: {len(history)} messages")
+        print(f"[DEBUG] Loaded conversation summary: {summary[:100]}..." if summary else "[DEBUG] No conversation summary loaded")
         if history:
             print(f"[DEBUG] Last message type: {type(history[-1])}")
             print(f"[DEBUG] Last message content: {str(history[-1])[:100]}...")
@@ -520,6 +553,7 @@ def run_research_agent(message: str, thread_id: Optional[str] = None):
             "research_notes": [],
             "iterations": 0,
             "conversation_history": [],
+            "conversation_summary": "",
             "current_report_version": 0,
             "next_topic": "",
             "final_report": "",

@@ -49,4 +49,8 @@ FORMATTING REQUIREMENTS:
 
 
 DIRECT_ANSWER_PROMPT_TEMPLATE = """You are a helpful assistant. Answer the user's request directly.
+
+Conversation Summary:
+{conversation_summary}
+
 User Request: {user_request}"""
