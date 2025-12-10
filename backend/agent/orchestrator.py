@@ -21,16 +21,18 @@ from db_utils import create_checkpointer
 
 from .execution_trace import create_trace_event
 from .models import SupervisorDecision
-from .prompts import (
+from .prompts.supervisor import (
     SUPERVISOR_FOLLOW_UP_CONTEXT_TEMPLATE,
     SUPERVISOR_FOLLOW_UP_SYSTEM_PROMPT_TEMPLATE,
     SUPERVISOR_SYSTEM_PROMPT_TEMPLATE,
     SUPERVISOR_USER_PROMPT_TEMPLATE,
 )
-from .prompts.report_prompts import (
-    FINAL_REPORT_PROMPT_TEMPLATE,
-    FINAL_REPORT_REFINEMENT_PROMPT_TEMPLATE,
+from .prompts.response_generator import (
+    FINAL_RESPONSE_PROMPT_TEMPLATE,
+    FINAL_RESPONSE_REFINEMENT_PROMPT_TEMPLATE,
     DIRECT_ANSWER_PROMPT_TEMPLATE,
+    FORMAT_INSTRUCTIONS_CONCISE,
+    FORMAT_INSTRUCTIONS_REPORT,
 )
 from .researcher import researcher_graph, set_state_logger as set_researcher_logger
 from .states import SupervisorState
@@ -66,37 +68,30 @@ def set_state_logger(logger):
 
 
 def route_supervisor(state: SupervisorState):
-    """Routes supervisor decisions based on research iterations."""
-    iterations = state.get("research_iterations", 1)
+    """Routes based on next_topic and answer_format constraints."""
+    next_topic = state.get("next_topic", "")
+    answer_format = state.get("answer_format", "concise")
     current_loop = state.get("iterations", 0)
-    
-    if iterations == -1:
+
+    if next_topic.startswith("CLARIFY:"):
         return "clarification"
-    
-    # If supervisor explicitly said finish, respect it
-    if state["next_topic"] == "FINISH":
-        # If we have research notes, use final_report to incorporate them
+
+    if next_topic == "FINISH":
         if state.get("research_notes"):
             return "final_report"
-        # Otherwise treat as direct answer (no research done)
         return "direct_answer"
-        
-    # User Logic: If 0 iterations and NOT explicitly finishing, do direct answer.
-    # This prevents "finished" research (which sets iter=0) from accidentally
-    # routing to direct_answer (which ignores research notes).
-    if iterations == 0 and state.get("next_topic") != "FINISH":
-        return "direct_answer"
-        
-    # Check loop limit (Soft Guidance: allow supervisor to finish early, but force finish if limit hit)
-    # The supervisor logic already checks iteration >= 5 (hard limit), 
-    # but now we use research_iterations (1-3) as the target.
-    # Note: supervisor_node runs BEFORE this check and increments iterations in its result logic
-    # Wait, supervisor_node returns iterations + 1. So if we started at 0, result has 1.
     
-    if current_loop > iterations:
-        # We hit the planned iterations, go to final report
-        return "final_report"
-        
+    # Research path requested
+    # Check limits
+    if answer_format == "concise":
+        if current_loop >= 1:
+            # Enforce max 1 loop for concise
+            return "final_report"
+    else:
+        # Report format - default max 5
+        if current_loop >= 5:
+            return "final_report"
+
     return "call_researcher"
 
 
@@ -170,12 +165,6 @@ def _emit_supervisor_trace_events(writer, decision: SupervisorDecision, node_cal
     return [node_call_event, reasoning_event, decision_event]
 
 
-def _build_supervisor_result(decision: SupervisorDecision, iteration: int, trace_events: List[Dict]) -> Dict:
-    """Build supervisor node result."""
-    if decision.next_step == "finish":
-        return {"next_topic": "FINISH", "execution_trace": trace_events}
-    return {"next_topic": decision.research_topic, "iterations": iteration + 1, "execution_trace": trace_events}
-
 
 def _generate_final_report(state: SupervisorState) -> str:
     """Generate final report using LLM."""
@@ -183,20 +172,25 @@ def _generate_final_report(state: SupervisorState) -> str:
     existing_report = state.get("final_report", "")
     current_version = state.get("current_report_version", 0)
     is_refinement = bool(existing_report)
+    answer_format = state.get("answer_format", "concise")
+    
+    formatting_instructions = FORMAT_INSTRUCTIONS_REPORT if answer_format == "report" else FORMAT_INSTRUCTIONS_CONCISE
     
     if is_refinement:
-        prompt = FINAL_REPORT_REFINEMENT_PROMPT_TEMPLATE.format(
+        prompt = FINAL_RESPONSE_REFINEMENT_PROMPT_TEMPLATE.format(
             current_date=format_date(),
             version=current_version,
             user_request=state['user_request'],
             existing_report=existing_report,
-            notes=notes
+            notes=notes,
+            formatting_instructions=formatting_instructions
         )
     else:
-        prompt = FINAL_REPORT_PROMPT_TEMPLATE.format(
+        prompt = FINAL_RESPONSE_PROMPT_TEMPLATE.format(
             current_date=format_date(),
             user_request=state['user_request'],
-            notes=notes
+            notes=notes,
+            formatting_instructions=formatting_instructions
         )
     
     response = create_llm_model().invoke([HumanMessage(content=prompt)])
@@ -280,7 +274,7 @@ def supervisor_node(state: SupervisorState):
             _handle_thread_name_generation(state, writer)
         
         # Hard safety limit
-        if iteration >= 5:
+        if iteration >= 10:  # Increased limit for report mode, though route_supervisor handles it
             node_call_event = create_trace_event("node_call", "supervisor", {})
             writer({"event": "trace", **node_call_event})
             writer({"event": "supervisor_log", "message": "Max iterations reached. Forcing finish."})
@@ -293,26 +287,25 @@ def supervisor_node(state: SupervisorState):
         
         decision = _make_supervisor_decision(state, iteration)
         
-        # Clamp values
-        r_iter = max(-1, min(3, decision.research_iterations))
-        q_breadth = max(3, min(5, decision.query_breadth))
+        ans_fmt = decision.answer_format if hasattr(decision, "answer_format") and decision.answer_format in ["concise", "report"] else "concise"
         
         trace_events = _emit_supervisor_trace_events(writer, decision, node_call_event)
         
-        # Update result with config
-        result = _build_supervisor_result(decision, iteration, trace_events)
-        result["research_iterations"] = r_iter
-        result["query_breadth"] = q_breadth
+        # Determine next topic
+        next_topic = decision.research_topic
+        if decision.next_step == "clarify":
+            next_topic = f"CLARIFY:{decision.reasoning}"
+        elif decision.next_step == "finish":
+            next_topic = "FINISH"
+            
+        result = {
+            "next_topic": next_topic,
+            "iterations": iteration + 1 if decision.next_step == "research" else iteration,
+            "execution_trace": trace_events,
+            "answer_format": ans_fmt
+        }
         
-        # If -1 (clarify), ensure next_topic triggers clarification route logic
-        if r_iter == -1:
-             # Pass reasoning as clarification question prefix
-             result["next_topic"] = f"CLARIFY:{decision.reasoning}"
-        elif r_iter == 0:
-             # Direct answer, routing will handle
-             pass
-        
-        log_node_state(_state_logger, "supervisor", "MAIN_GRAPH", {**state, **result}, "AFTER", iteration, f"Decision: {decision.next_step}, Iter: {r_iter}, Breadth: {q_breadth}")
+        log_node_state(_state_logger, "supervisor", "MAIN_GRAPH", {**state, **result}, "AFTER", iteration, f"Decision: {decision.next_step}, Iter: {iteration}, Format: {ans_fmt}")
         return result
     except Exception as e:
         writer = get_stream_writer()
@@ -327,17 +320,36 @@ def call_researcher_node(state: SupervisorState):
         log_node_state(_state_logger, "call_researcher", "MAIN_GRAPH", dict(state), "BEFORE", state.get("iterations", 0), f"Topic: {state.get('next_topic', 'N/A')}")
         writer = get_stream_writer()
         topic = state["next_topic"]
-        breadth = state.get("query_breadth", 4) # Default to 4
+        
+        # Determine breadth based on answer format
+        answer_format = state.get("answer_format", "concise")
+        breadth = 3 if answer_format == "concise" else 5
         
         node_call_event = create_trace_event("node_call", "call_researcher", {"topic": topic, "breadth": breadth})
         writer({"event": "trace", **node_call_event})
         
-        subgraph_output = researcher_graph.invoke({"topic": topic, "query_breadth": breadth})
-        summary = subgraph_output["research_summary"]
-        formatted_note = f"## Research on: {topic}\n{summary}"
+        # Stream the subgraph to capture internal events
+        final_summary = ""
+        
+        # stream_mode=["custom", "values"] gives us both events and state updates
+        for mode, data in researcher_graph.stream(
+            {"topic": topic, "query_breadth": breadth},
+            stream_mode=["custom", "values"]
+        ):
+            if mode == "custom":
+                # Forward custom events (like trace, web_search_url) to main stream
+                items = data if isinstance(data, list) else [data]
+                for item in items:
+                    writer(item)
+            elif mode == "values":
+                # Capture the latest research summary
+                if "research_summary" in data:
+                    final_summary = data["research_summary"]
+        
+        formatted_note = f"## Research on: {topic}\n{final_summary}"
         
         result = {"research_notes": [formatted_note], "execution_trace": [node_call_event]}
-        log_node_state(_state_logger, "call_researcher", "MAIN_GRAPH", {**state, **result}, "AFTER", state.get("iterations", 0), f"Summary length: {len(summary)} chars")
+        log_node_state(_state_logger, "call_researcher", "MAIN_GRAPH", {**state, **result}, "AFTER", state.get("iterations", 0), f"Summary length: {len(final_summary)} chars")
         return result
     except Exception as e:
         writer = get_stream_writer()
@@ -576,20 +588,30 @@ def run_research_agent(message: str, thread_id: Optional[str] = None):
             config=config if config else None,
             stream_mode=["custom", "updates"]
         ):
-            if mode == "custom" and isinstance(data, dict):
-                if data.get("event") == "trace":
-                    trace_event = {k: v for k, v in data.items() if k != "event"}
-                    question_execution_trace.append(trace_event)
-                    yield mode, {"event": "trace", **trace_event}
-                elif data.get("event") == "web_search_url":
-                    # Capture web_search_url events for persistence in execution trace
-                    # We wrap it as a custom trace event for storage
-                    print(f"[DEBUG] Emitting web_search_url event from orchestrator: {data}")
-                    from .execution_trace import create_trace_event
-                    trace_event = create_trace_event("custom", "perform_search", data)
-                    question_execution_trace.append(trace_event)
-                    # Yield original event for frontend streaming
-                    yield mode, data
+            if mode == "custom":
+                # Ensure data is iterable (list) for uniform processing
+                items = data if isinstance(data, list) else [data]
+                
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                        
+                    if item.get("event") == "trace":
+                        trace_event = {k: v for k, v in item.items() if k != "event"}
+                        question_execution_trace.append(trace_event)
+                        yield mode, {"event": "trace", **trace_event}
+                    elif item.get("event") == "web_search_url":
+                        # Capture web_search_url events for persistence in execution trace
+                        # We wrap it as a custom trace event for storage
+                        print(f"[DEBUG] Emitting web_search_url event from orchestrator: {item}")
+                        from .execution_trace import create_trace_event
+                        trace_event = create_trace_event("custom", "perform_search", item)
+                        question_execution_trace.append(trace_event)
+                        # Yield original event for frontend streaming
+                        yield mode, item
+                    else:
+                        # Yield other custom events as-is (e.g. supervisor_decision)
+                        yield mode, item
             
             if mode == "updates":
                 from .execution_trace import create_trace_event

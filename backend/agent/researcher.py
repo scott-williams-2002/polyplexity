@@ -13,11 +13,11 @@ from langgraph.types import Send
 
 from .execution_trace import create_trace_event
 from .models import SearchQueries
-from .prompts import (
+from .prompts.researcher import (
     QUERY_GENERATION_SYSTEM_PROMPT,
     QUERY_GENERATION_USER_PROMPT_TEMPLATE,
+    RESEARCH_SYNTHESIS_PROMPT_TEMPLATE,
 )
-from .prompts.research_prompts import RESEARCH_SYNTHESIS_PROMPT_TEMPLATE
 from .states import ResearcherState
 from .utils.helpers import create_llm_model, format_date, log_node_state, format_search_url_markdown
 

@@ -31,16 +31,9 @@ class SupervisorDecision(BaseModel):
         description="If researching, the specific topic to investigate next. If finishing, clarifying, or answering directly, leave empty.",
         default=""
     )
-    research_iterations: int = Field(
-        description="Number of research iterations needed. -1 for clarification, 0 for direct answer, 1-3 for research loops.",
-        ge=-1,
-        le=3
-    )
-    query_breadth: int = Field(
-        description="Depth of research (Tavily results per query). Standard is 3-5.",
-        ge=3,
-        le=5,
-        default=4
+    answer_format: Literal["concise", "report"] = Field(
+        description="Select 'concise' for standard Q&A (bullet points, natural language). Select 'report' ONLY if the user explicitly asks for a report, comprehensive study, or in-depth analysis.",
+        default="concise"
     )
     reasoning: str = Field(description="Brief reasoning for the decision.")
 
