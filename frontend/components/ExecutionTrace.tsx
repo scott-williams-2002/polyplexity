@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/collapsible"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { ExecutionTraceEvent } from "@/lib/api"
+import { ExecutionTraceEvent } from "@/lib/types"
 
 export interface ExecutionTraceProps {
   events: ExecutionTraceEvent[]
@@ -169,28 +169,8 @@ export function ExecutionTrace({
               Writing final report...
             </div>
           )
-        } else if (event.data.event === "web_search_url") {
-          return (
-            <div key={index} className="text-sm py-1 pl-4">
-              <span className="text-xs text-muted-foreground mr-2">Found:</span>
-              <span className="markdown-content inline-block align-middle">
-                <ReactMarkdown 
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                        p: ({ children }) => <span className="text-sm">{children}</span>,
-                        a: ({ href, children }) => (
-                            <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline hover:text-primary/80">
-                                {children}
-                            </a>
-                        )
-                    }}
-                >
-                    {event.data.markdown || event.data.url}
-                </ReactMarkdown>
-              </span>
-            </div>
-          )
         }
+        // web_search_url events are now handled by the Sources component, so we skip them here
         return null
 
       default:

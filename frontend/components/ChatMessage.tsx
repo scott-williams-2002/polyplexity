@@ -11,8 +11,10 @@ import {
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { ExecutionTrace } from "./ExecutionTrace"
+import { StatusIndicator } from "./StatusIndicator"
+import { Sources } from "./Sources"
 
-import { ExecutionTraceEvent } from "@/lib/api"
+import { ExecutionTraceEvent, Source } from "@/lib/types"
 
 export interface ChatMessageProps {
   role: "user" | "assistant"
@@ -21,6 +23,8 @@ export interface ChatMessageProps {
   toolCalls?: Array<{ tool: string; input: any }>
   isStreaming?: boolean
   execution_trace?: ExecutionTraceEvent[]
+  currentStatus?: string | null
+  sources?: Source[]
 }
 
 export function ChatMessage({ 
@@ -29,7 +33,9 @@ export function ChatMessage({
   thoughts = [], 
   toolCalls = [],
   isStreaming = false,
-  execution_trace = []
+  execution_trace = [],
+  currentStatus = null,
+  sources = []
 }: ChatMessageProps) {
   const [isOpen, setIsOpen] = React.useState(false)
   const hasThoughts = thoughts.length > 0 || toolCalls.length > 0
@@ -49,7 +55,12 @@ export function ChatMessage({
         />
       )}
       
-      {/* Only show content area if there's content or it's not streaming */}
+      {/* Status indicator - shown when streaming and content is empty */}
+      {isStreaming && !content && currentStatus && role === "assistant" && (
+        <StatusIndicator status={currentStatus} />
+      )}
+      
+      {/* Content area - shown when there's content or it's not streaming */}
       {(content || !isStreaming) && (
         <>
           <div className="flex items-start justify-between gap-2">
@@ -174,6 +185,11 @@ export function ChatMessage({
                 )}
               </CollapsibleContent>
             </Collapsible>
+          )}
+          
+          {/* Sources - shown at the bottom for assistant messages */}
+          {role === "assistant" && sources && sources.length > 0 && (
+            <Sources sources={sources} />
           )}
         </>
       )}
