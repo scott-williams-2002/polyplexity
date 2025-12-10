@@ -38,7 +38,7 @@ Really ask yourself if you have enough information to answer the request.
 Based on the complexity and clarity of the User Request, make the following decisions:
 
 1. `next_step`:
-    - Select 'clarify' if the request is ambiguous, nonsensical, or a simple greeting, requiring clarification from the user.
+    - Select 'clarify' if the request is nonsensical, or a simple greeting, requiring clarification from the user. If the request is vague, but makes sense still don't say clarify but instead just keep the response vague and high level
     - Select 'finish' if the request can be answered directly without any web search OR if you have gathered enough information from previous research.
     - Select 'research' if you need to gather (more) information from the web.
 

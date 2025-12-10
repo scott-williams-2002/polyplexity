@@ -153,16 +153,9 @@ def _make_supervisor_decision(state: SupervisorState, iteration: int) -> Supervi
 def _emit_supervisor_trace_events(writer, decision: SupervisorDecision, node_call_event: Dict):
     """Emit supervisor trace events."""
     reasoning_event = create_trace_event("reasoning", "supervisor", {"reasoning": decision.reasoning})
-    decision_event = create_trace_event("custom", "supervisor", {
-        "event": "supervisor_decision",
-        "decision": decision.next_step,
-        "reasoning": decision.reasoning,
-        "topic": decision.research_topic
-    })
     writer({"event": "trace", **reasoning_event})
-    writer({"event": "trace", **decision_event})
     writer({"event": "supervisor_decision", "decision": decision.next_step, "reasoning": decision.reasoning, "topic": decision.research_topic})
-    return [node_call_event, reasoning_event, decision_event]
+    return [node_call_event, reasoning_event]
 
 
 
@@ -336,10 +329,12 @@ def call_researcher_node(state: SupervisorState):
             {"topic": topic, "query_breadth": breadth},
             stream_mode=["custom", "values"]
         ):
+            print(f"[DEBUG] researcher_graph stream chunk: mode={mode}, type(data)={type(data)}")
             if mode == "custom":
                 # Forward custom events (like trace, web_search_url) to main stream
                 items = data if isinstance(data, list) else [data]
                 for item in items:
+                    print(f"[DEBUG] Forwarding custom event from researcher: {item.get('event', 'unknown')}")
                     writer(item)
             elif mode == "values":
                 # Capture the latest research summary
@@ -392,10 +387,8 @@ def final_report_node(state: SupervisorState):
         log_node_state(_state_logger, "final_report", "MAIN_GRAPH", dict(state), "BEFORE", state.get("iterations", 0), f"Research notes count: {len(state.get('research_notes', []))}")
         writer = get_stream_writer()
         node_call_event = create_trace_event("node_call", "final_report", {})
-        writing_event = create_trace_event("custom", "final_report", {"event": "writing_report"})
         
         writer({"event": "trace", **node_call_event})
-        writer({"event": "trace", **writing_event})
         writer({"event": "writing_report"})
         
         final_report = _generate_final_report(state)
@@ -405,7 +398,7 @@ def final_report_node(state: SupervisorState):
         writer({"event": "final_report_complete", "report": final_report})
         
         current_question_trace = state.get("_question_execution_trace", [])
-        full_execution_trace = current_question_trace + [node_call_event, writing_event, complete_event]
+        full_execution_trace = current_question_trace + [node_call_event, complete_event]
         
         thread_id = state.get("_thread_id")
         if thread_id:
@@ -418,7 +411,7 @@ def final_report_node(state: SupervisorState):
         result = {
             "final_report": final_report,
             "current_report_version": current_version + 1,
-            "execution_trace": [node_call_event, writing_event, complete_event],
+            "execution_trace": [node_call_event, complete_event],
             "conversation_history": [user_message, assistant_message]
         }
         
@@ -600,18 +593,30 @@ def run_research_agent(message: str, thread_id: Optional[str] = None):
                         trace_event = {k: v for k, v in item.items() if k != "event"}
                         question_execution_trace.append(trace_event)
                         yield mode, {"event": "trace", **trace_event}
-                    elif item.get("event") == "web_search_url":
-                        # Capture web_search_url events for persistence in execution trace
-                        # We wrap it as a custom trace event for storage
-                        print(f"[DEBUG] Emitting web_search_url event from orchestrator: {item}")
-                        from .execution_trace import create_trace_event
-                        trace_event = create_trace_event("custom", "perform_search", item)
-                        question_execution_trace.append(trace_event)
-                        # Yield original event for frontend streaming
-                        yield mode, item
                     else:
-                        # Yield other custom events as-is (e.g. supervisor_decision)
+                        # Raw event (e.g. web_search_url, supervisor_decision, writing_report)
+                        # 1. Yield raw event for frontend streaming
                         yield mode, item
+                        
+                        # 2. Auto-trace: Wrap in trace event for history/DB persistence
+                        from .execution_trace import create_trace_event
+                        
+                        # Map event to node and trace type
+                        event_name = item.get("event")
+                        trace_type = "search" if event_name == "search_start" else "custom"
+                        
+                        node_map = {
+                            "supervisor_decision": "supervisor",
+                            "writing_report": "final_report",
+                            "web_search_url": "perform_search",
+                            "search_start": "perform_search",
+                            "generated_queries": "generate_queries",
+                            "research_synthesis_done": "synthesize_research"
+                        }
+                        node_name = node_map.get(event_name, "orchestrator")
+                        
+                        trace_event = create_trace_event(trace_type, node_name, item)
+                        question_execution_trace.append(trace_event)
             
             if mode == "updates":
                 from .execution_trace import create_trace_event
