@@ -321,6 +321,9 @@ def call_researcher_node(state: SupervisorState):
         node_call_event = create_trace_event("node_call", "call_researcher", {"topic": topic, "breadth": breadth})
         writer({"event": "trace", **node_call_event})
         
+        # Track seen URLs to prevent duplicate web_search_url events
+        seen_urls = set()
+        
         # Stream the subgraph to capture internal events
         final_summary = ""
         
@@ -334,8 +337,20 @@ def call_researcher_node(state: SupervisorState):
                 # Forward custom events (like trace, web_search_url) to main stream
                 items = data if isinstance(data, list) else [data]
                 for item in items:
-                    print(f"[DEBUG] Forwarding custom event from researcher: {item.get('event', 'unknown')}")
-                    writer(item)
+                    event_type = item.get('event', 'unknown')
+                    print(f"[DEBUG] Forwarding custom event from researcher: {event_type}")
+                    
+                    # Deduplicate web_search_url events by URL
+                    if event_type == "web_search_url":
+                        url = item.get("url")
+                        if url and url not in seen_urls:
+                            seen_urls.add(url)
+                            writer(item)
+                        else:
+                            print(f"[DEBUG] Skipping duplicate web_search_url: {url}")
+                    else:
+                        # Forward all other events normally
+                        writer(item)
             elif mode == "values":
                 # Capture the latest research summary
                 if "research_summary" in data:

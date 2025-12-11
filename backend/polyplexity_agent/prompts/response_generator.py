@@ -23,6 +23,7 @@ FORMATTING REQUIREMENTS (CONCISE):
 # Allows for more structure, tables, and in-depth analysis, with strict citation rules.
 FORMAT_INSTRUCTIONS_REPORT = """
 FORMATTING REQUIREMENTS (REPORT):
+- No more than 300 words.
 - Write a comprehensive, well-structured report.
 - Use proper markdown headers (#, ##, ###).
 - Use lists for readability.
