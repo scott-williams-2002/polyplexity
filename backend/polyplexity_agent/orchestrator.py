@@ -17,27 +17,27 @@ from langchain_groq import ChatGroq
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 
-from db_utils import create_checkpointer
+from polyplexity_agent.db_utils import create_checkpointer
 
-from .execution_trace import create_trace_event
-from .models import SupervisorDecision
-from .prompts.supervisor import (
+from polyplexity_agent.execution_trace import create_trace_event
+from polyplexity_agent.models import SupervisorDecision
+from polyplexity_agent.prompts.supervisor import (
     SUPERVISOR_FOLLOW_UP_CONTEXT_TEMPLATE,
     SUPERVISOR_FOLLOW_UP_SYSTEM_PROMPT_TEMPLATE,
     SUPERVISOR_SYSTEM_PROMPT_TEMPLATE,
     SUPERVISOR_USER_PROMPT_TEMPLATE,
 )
-from .prompts.response_generator import (
+from polyplexity_agent.prompts.response_generator import (
     FINAL_RESPONSE_PROMPT_TEMPLATE,
     FINAL_RESPONSE_REFINEMENT_PROMPT_TEMPLATE,
     DIRECT_ANSWER_PROMPT_TEMPLATE,
     FORMAT_INSTRUCTIONS_CONCISE,
     FORMAT_INSTRUCTIONS_REPORT,
 )
-from .researcher import researcher_graph, set_state_logger as set_researcher_logger
-from .states import SupervisorState
-from .summarizer import summarize_conversation_node
-from .utils.helpers import (
+from polyplexity_agent.researcher import researcher_graph, set_state_logger as set_researcher_logger
+from polyplexity_agent.states import SupervisorState
+from polyplexity_agent.summarizer import summarize_conversation_node
+from polyplexity_agent.utils.helpers import (
     create_llm_model,
     ensure_trace_completeness,
     format_date,
@@ -45,8 +45,8 @@ from .utils.helpers import (
     log_node_state,
     save_messages_and_trace,
 )
-from utils.state_logger import StateLogger
-from .testing import draw_graph
+from polyplexity_agent.utils.state_logger import StateLogger
+from polyplexity_agent.testing import draw_graph
 
 load_dotenv()
 
@@ -102,7 +102,7 @@ def _handle_thread_name_generation(state: SupervisorState, writer):
     user_request = state.get("user_request", "")
     if thread_id and user_request:
         try:
-            from db_utils import get_database_manager
+            from polyplexity_agent.db_utils import get_database_manager
             db_manager = get_database_manager()
             
             # Check if thread already has a name
@@ -599,7 +599,7 @@ def run_research_agent(message: str, thread_id: Optional[str] = None):
                         yield mode, item
                         
                         # 2. Auto-trace: Wrap in trace event for history/DB persistence
-                        from .execution_trace import create_trace_event
+                        from polyplexity_agent.execution_trace import create_trace_event
                         
                         # Map event to node and trace type
                         event_name = item.get("event")
@@ -619,7 +619,7 @@ def run_research_agent(message: str, thread_id: Optional[str] = None):
                         question_execution_trace.append(trace_event)
             
             if mode == "updates":
-                from .execution_trace import create_trace_event
+                from polyplexity_agent.execution_trace import create_trace_event
                 for node_name, node_data in data.items():
                     if isinstance(node_data, dict):
                         if node_name == "final_report" and "execution_trace" in node_data:

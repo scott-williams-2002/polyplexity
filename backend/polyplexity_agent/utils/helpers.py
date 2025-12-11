@@ -10,9 +10,9 @@ from urllib.parse import urlparse
 from langchain_core.messages import HumanMessage
 from langchain_groq import ChatGroq
 
-from db_utils import get_database_manager
+from polyplexity_agent.db_utils import get_database_manager
 
-from ..prompts.thread_prompts import THREAD_NAME_GENERATION_PROMPT_TEMPLATE
+from polyplexity_agent.prompts.thread_prompts import THREAD_NAME_GENERATION_PROMPT_TEMPLATE
 
 
 # Lightweight model for fast thread name generation

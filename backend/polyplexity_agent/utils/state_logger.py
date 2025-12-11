@@ -131,4 +131,3 @@ class StateLogger:
         if self.log_file:
             self.log_file.close()
             self.log_file = None
-

@@ -3,9 +3,9 @@ State definitions for the research agent graph system.
 Uses TypedDict for type safety and Annotated reducers for state accumulation.
 """
 import operator
-from typing import Annotated, List, Optional, TypedDict
+from typing import Annotated, Dict, List, Optional, TypedDict
 
-from .summarizer import manage_chat_history
+from polyplexity_agent.summarizer import manage_chat_history
 
 
 class ResearcherState(TypedDict):
@@ -29,6 +29,26 @@ class ResearcherState(TypedDict):
     query_breadth: int
 
 
+class MarketResearchState(TypedDict, total=False):
+    """
+    State schema for the market research subgraph.
+
+    Fields:
+        original_topic: The user's original research topic
+        market_queries: Keywords generated for Polymarket search
+        raw_events: Unprocessed event data from API
+        candidate_markets: Processed and filtered markets for LLM ranking
+        approved_markets: Final list of markets approved by evaluation
+        reasoning_trace: Accumulated reasoning steps from the subgraph
+    """
+    original_topic: str
+    market_queries: List[str]
+    raw_events: List[Dict]
+    candidate_markets: List[Dict]
+    approved_markets: List[Dict]
+    reasoning_trace: Annotated[List[str], operator.add]
+
+
 class SupervisorState(TypedDict, total=False):
     """
     State schema for the main supervisor graph.
@@ -39,6 +59,7 @@ class SupervisorState(TypedDict, total=False):
     Fields:
         user_request: The original user question/request
         research_notes: Accumulated research notes from multiple iterations (uses operator.add)
+        prediction_markets: List of approved prediction markets to include in the report
         next_topic: The next topic to research (or "FINISH" to end)
         final_report: The final generated report
         iterations: Current iteration count (prevents infinite loops)
@@ -51,6 +72,7 @@ class SupervisorState(TypedDict, total=False):
     """
     user_request: str
     research_notes: Annotated[List[str], operator.add]  # Accumulates notes from iterations
+    prediction_markets: List[Dict]  # Approved prediction markets
     next_topic: str  # To pass to subgraph
     final_report: str
     iterations: int

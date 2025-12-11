@@ -11,15 +11,15 @@ from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 
-from .execution_trace import create_trace_event
-from .models import SearchQueries
-from .prompts.researcher import (
+from polyplexity_agent.execution_trace import create_trace_event
+from polyplexity_agent.models import SearchQueries
+from polyplexity_agent.prompts.researcher import (
     QUERY_GENERATION_SYSTEM_PROMPT,
     QUERY_GENERATION_USER_PROMPT_TEMPLATE,
     RESEARCH_SYNTHESIS_PROMPT_TEMPLATE,
 )
-from .states import ResearcherState
-from .utils.helpers import create_llm_model, format_date, log_node_state, format_search_url_markdown
+from polyplexity_agent.states import ResearcherState
+from polyplexity_agent.utils.helpers import create_llm_model, format_date, log_node_state, format_search_url_markdown
 
 # Global state logger instance
 _state_logger: Optional[object] = None

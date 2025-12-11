@@ -6,8 +6,8 @@ from typing import Any, Dict, List
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from .prompts.system_prompts import SUMMARIZER_SYSTEM_PROMPT
-from .utils.helpers import create_llm_model
+from polyplexity_agent.prompts.system_prompts import SUMMARIZER_SYSTEM_PROMPT
+from polyplexity_agent.utils.helpers import create_llm_model
 
 
 def manage_chat_history(current: List[Dict], new: List[Dict]) -> List[Dict]:

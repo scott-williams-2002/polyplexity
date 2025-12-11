@@ -13,9 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from agent import _checkpointer, main_graph, run_research_agent
-from db_utils import get_database_manager
-from db_utils.db_setup import setup_checkpointer
+from polyplexity_agent import _checkpointer, main_graph, run_research_agent
+from polyplexity_agent.db_utils import get_database_manager
+from polyplexity_agent.db_utils.db_setup import setup_checkpointer
 
 app = FastAPI()
 
@@ -127,7 +127,7 @@ async def list_threads():
         # Get all threads from database
         session = db_manager.get_session()
         try:
-            from db_utils import Thread, Message
+            from polyplexity_agent.db_utils import Thread, Message
             
             # Get all threads with their messages
             threads_query = session.query(Thread).order_by(Thread.created_at.asc())
