@@ -259,6 +259,7 @@ $RECYCLE.BIN/
 
 # State logs
 backend/agent/state_logs/*.txt
+backend/polyplexity_agent/state_logs/
 backend_legacy/logs/*.txt
 
 # Reports
