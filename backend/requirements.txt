@@ -35,7 +35,7 @@ jsonpatch==1.33
 jsonpointer==3.0.0
 jsonschema_rs==0.29.1
 langchain-classic==1.0.0
-langchain-core==1.0.5
+langchain-core==1.1.0
 langchain-tavily==0.2.13
 langchain-text-splitters==1.0.0
 langgraph-api==0.4.48
