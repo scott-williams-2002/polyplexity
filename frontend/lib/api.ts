@@ -1,9 +1,9 @@
 /**
  * API client for backend communication
  */
-import { ThreadInfo, SSEEvent, Message } from "./types";
+import { ThreadInfo, SSEEvent, ApiMessage } from "../types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 /**
  * Fetch all conversation threads
@@ -34,17 +34,33 @@ export async function streamChat(
     url.searchParams.append('thread_id', threadId);
   }
 
-  const response = await fetch(url.toString(), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query: message }),
-  });
+  let response: Response;
+  try {
+    console.log('[SSE] Sending request to:', url.toString());
+    response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+      },
+      body: JSON.stringify({ query: message }),
+    });
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Network error: Unable to connect to backend. Please ensure the backend server is running at ' + API_BASE_URL);
+    }
+    throw error;
+  }
 
   if (!response.ok) {
+    if (response.status === 500) {
+      throw new Error('Server error: Please check if the backend is running correctly');
+    }
     throw new Error(`Failed to stream chat: ${response.statusText}`);
   }
+
+  console.log('[SSE] Response OK, Content-Type:', response.headers.get('content-type'));
+  console.log('[SSE] Response status:', response.status);
 
   const reader = response.body?.getReader();
   const decoder = new TextDecoder();
@@ -54,15 +70,23 @@ export async function streamChat(
   }
 
   let buffer = '';
+  let chunkCount = 0;
 
+  console.log('[SSE] Starting to read stream...');
+  
   while (true) {
     const { done, value } = await reader.read();
     
     if (done) {
+      console.log('[SSE] Stream reader done');
       break;
     }
 
-    buffer += decoder.decode(value, { stream: true });
+    chunkCount++;
+    const chunk = decoder.decode(value, { stream: true });
+    console.log(`[SSE] Received chunk ${chunkCount}:`, chunk.substring(0, 200));
+    
+    buffer += chunk;
     const lines = buffer.split('\n');
     
     // Keep the last incomplete line in the buffer
@@ -71,11 +95,17 @@ export async function streamChat(
     for (const line of lines) {
       if (line.startsWith('data: ')) {
         try {
-          const data = JSON.parse(line.slice(6));
+          const rawJson = line.slice(6);
+          console.log('[SSE] Raw JSON:', rawJson);
+          const data = JSON.parse(rawJson);
+          console.log('[SSE] Parsed event:', JSON.stringify(data, null, 2));
           onEvent(data);
         } catch (error) {
           console.error('Error parsing SSE event:', error, line);
         }
+      } else if (line.trim() && !line.startsWith(':')) {
+        // Log non-empty lines that aren't comments or data
+        console.log('[SSE] Non-data line:', line);
       }
     }
   }
@@ -86,7 +116,10 @@ export async function streamChat(
     for (const line of lines) {
       if (line.startsWith('data: ')) {
         try {
-          const data = JSON.parse(line.slice(6));
+          const rawJson = line.slice(6);
+          console.log('[SSE] Raw JSON (buffer):', rawJson);
+          const data = JSON.parse(rawJson);
+          console.log('[SSE] Parsed event (buffer):', JSON.stringify(data, null, 2));
           onEvent(data);
         } catch (error) {
           console.error('Error parsing SSE event:', error, line);
@@ -94,6 +127,8 @@ export async function streamChat(
       }
     }
   }
+  
+  console.log('[SSE] Stream completed');
 }
 
 /**
@@ -139,7 +174,7 @@ export async function deleteThread(threadId: string): Promise<boolean> {
 /**
  * Get conversation history for a thread
  */
-export async function getThreadHistory(threadId: string): Promise<Message[]> {
+export async function getThreadHistory(threadId: string): Promise<ApiMessage[]> {
   try {
     const response = await fetch(`${API_BASE_URL}/threads/${threadId}/history`);
     
@@ -147,12 +182,18 @@ export async function getThreadHistory(threadId: string): Promise<Message[]> {
       if (response.status === 404) {
         throw new Error('Thread not found');
       }
+      if (response.status === 500) {
+        throw new Error('Server error: Please check if the backend is running');
+      }
       const errorData = await response.json().catch(() => ({ detail: response.statusText }));
       throw new Error(errorData.detail || `Failed to fetch thread history: ${response.statusText}`);
     }
     
     return await response.json();
   } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Network error: Unable to connect to backend. Please ensure the backend server is running.');
+    }
     console.error('Error fetching thread history:', error);
     throw error;
   }
@@ -170,3 +211,39 @@ export async function healthCheck(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Price history data point from Polymarket API
+ */
+export interface PriceHistoryPoint {
+  t: number; // Unix timestamp
+  p: number; // Price
+}
+
+/**
+ * Price history response from Polymarket API
+ */
+export interface PriceHistoryResponse {
+  history: PriceHistoryPoint[];
+}
+
+/**
+ * Fetch price history for a Polymarket market
+ */
+export async function fetchPriceHistory(clobTokenId: string, interval: string = 'max'): Promise<PriceHistoryResponse> {
+  try {
+    const response = await fetch(
+      `https://clob.polymarket.com/prices-history?market=${encodeURIComponent(clobTokenId)}&interval=${interval}`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch price history: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching price history:', error);
+    throw error;
+  }
+}
+
