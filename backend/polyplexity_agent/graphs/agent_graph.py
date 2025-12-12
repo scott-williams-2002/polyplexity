@@ -10,10 +10,12 @@ from langgraph.graph import END, START, StateGraph
 
 from polyplexity_agent.config import Settings
 from polyplexity_agent.config.secrets import create_checkpointer
+from polyplexity_agent.graphs.nodes.supervisor.call_market_research import call_market_research_node
 from polyplexity_agent.graphs.nodes.supervisor.call_researcher import call_researcher_node
 from polyplexity_agent.graphs.nodes.supervisor.clarification import clarification_node
 from polyplexity_agent.graphs.nodes.supervisor.direct_answer import direct_answer_node
 from polyplexity_agent.graphs.nodes.supervisor.final_report import final_report_node
+from polyplexity_agent.graphs.nodes.supervisor.rewrite_polymarket_response import rewrite_polymarket_response_node
 from polyplexity_agent.graphs.nodes.supervisor.supervisor import supervisor_node
 from polyplexity_agent.graphs.nodes.supervisor.summarize_conversation import summarize_conversation_node
 from polyplexity_agent.graphs.state import SupervisorState
@@ -69,6 +71,8 @@ def create_agent_graph(
     builder.add_node("supervisor", supervisor_node)
     builder.add_node("call_researcher", call_researcher_node)
     builder.add_node("final_report", final_report_node)
+    builder.add_node("call_market_research", call_market_research_node)
+    builder.add_node("rewrite_polymarket_response", rewrite_polymarket_response_node)
     builder.add_node("direct_answer", direct_answer_node)
     builder.add_node("clarification", clarification_node)
     builder.add_node("summarize_conversation", summarize_conversation_node)
@@ -85,7 +89,9 @@ def create_agent_graph(
         },
     )
     builder.add_edge("call_researcher", "supervisor")
-    builder.add_edge("final_report", "summarize_conversation")
+    builder.add_edge("final_report", "call_market_research")
+    builder.add_edge("call_market_research", "rewrite_polymarket_response")
+    builder.add_edge("rewrite_polymarket_response", "summarize_conversation")
     builder.add_edge("direct_answer", "summarize_conversation")
     builder.add_edge("clarification", "summarize_conversation")
     builder.add_edge("summarize_conversation", END)

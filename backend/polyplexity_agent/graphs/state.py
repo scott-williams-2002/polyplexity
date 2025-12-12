@@ -75,6 +75,8 @@ class SupervisorState(TypedDict, total=False):
         current_report_version: Version number for report refinement in follow-ups
         execution_trace: Accumulated execution trace events for current question only (uses operator.add)
         answer_format: "concise" or "report"
+        approved_markets: List of approved markets returned from market research subgraph
+        polymarket_blurb: Optional rewritten convincing market recommendation text
         _thread_id: Internal field for passing thread_id to nodes (not persisted in checkpoints)
         _question_execution_trace: Internal field for passing current question's execution trace to final_report_node (not persisted in checkpoints)
     """
@@ -89,6 +91,8 @@ class SupervisorState(TypedDict, total=False):
     current_report_version: int  # Track report iterations for refinement
     execution_trace: Annotated[List[dict], operator.add]  # Track execution trace events (reset per question)
     answer_format: str  # "concise" or "report"
+    approved_markets: List[Dict]  # Approved markets from market research subgraph
+    polymarket_blurb: Optional[str]  # Rewritten convincing market recommendation text
     _thread_id: Optional[str]  # Internal: thread_id for storing messages in separate table
     _question_execution_trace: Optional[List[dict]]  # Internal: current question's execution trace for final_report_node
 

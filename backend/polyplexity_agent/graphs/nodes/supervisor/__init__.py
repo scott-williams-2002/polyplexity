@@ -16,6 +16,8 @@ from polyplexity_agent.graphs.nodes.supervisor.summarize_conversation import (
 __all__ = [
     "supervisor_node",
     "call_researcher_node",
+    "call_market_research_node",
+    "rewrite_polymarket_response_node",
     "direct_answer_node",
     "clarification_node",
     "final_report_node",
@@ -32,6 +34,12 @@ def __getattr__(name: str):
     elif name == "call_researcher_node":
         from polyplexity_agent.graphs.nodes.supervisor.call_researcher import call_researcher_node
         return call_researcher_node
+    elif name == "call_market_research_node":
+        from polyplexity_agent.graphs.nodes.supervisor.call_market_research import call_market_research_node
+        return call_market_research_node
+    elif name == "rewrite_polymarket_response_node":
+        from polyplexity_agent.graphs.nodes.supervisor.rewrite_polymarket_response import rewrite_polymarket_response_node
+        return rewrite_polymarket_response_node
     elif name == "direct_answer_node":
         from polyplexity_agent.graphs.nodes.supervisor.direct_answer import direct_answer_node
         return direct_answer_node

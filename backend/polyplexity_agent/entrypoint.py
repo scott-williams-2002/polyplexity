@@ -17,6 +17,7 @@ from polyplexity_agent.utils.state_manager import (
     _state_logger,
     set_state_logger,
 )
+from polyplexity_agent.graphs.subgraphs.market_research import set_state_logger as set_market_research_logger
 from polyplexity_agent.graphs.subgraphs.researcher import set_state_logger as set_researcher_logger
 from polyplexity_agent.streaming import process_custom_events, process_update_events
 from polyplexity_agent.utils.helpers import (
@@ -77,6 +78,7 @@ def run_research_agent(
     _state_logger = StateLogger(log_path)
     set_state_logger(_state_logger)
     set_researcher_logger(_state_logger)
+    set_market_research_logger(_state_logger)
     
     is_follow_up = False
     existing_state = None

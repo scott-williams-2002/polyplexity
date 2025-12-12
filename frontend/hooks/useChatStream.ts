@@ -257,6 +257,39 @@ export function useChatStream({
       }
     }
 
+    // Handle market research events
+    if (eventName === "market_research_start") {
+      setCurrentStatus("Starting market research...");
+      setStage("searching");
+    }
+
+    if (eventName === "tag_selected") {
+      const tags = payload.tags;
+      if (tags && Array.isArray(tags)) {
+        setCurrentStatus(`Selected ${tags.length} relevant market tags...`);
+        setStage("searching");
+      }
+    }
+
+    if (eventName === "market_approved") {
+      const question = payload.question;
+      if (question) {
+        setCurrentStatus(`Found market: ${question.substring(0, 60)}...`);
+        setStage("searching");
+      }
+    }
+
+    if (eventName === "market_research_complete") {
+      const reasoning = payload.reasoning || event.reasoning;
+      setCurrentStatus("Market research complete");
+      setStage("answering");
+    }
+
+    if (eventName === "polymarket_blurb_generated") {
+      setCurrentStatus("Generated market recommendations");
+      setStage("answering");
+    }
+
     // Handle state_update events
     if (eventType === "state_update") {
       // Handle final_report updates
