@@ -11,17 +11,34 @@ from langgraph.graph import END, START, StateGraph
 
 from polyplexity_agent.config import Settings
 from polyplexity_agent.config.secrets import create_checkpointer
+from polyplexity_agent.graphs.nodes.supervisor.call_researcher import call_researcher_node
+from polyplexity_agent.graphs.nodes.supervisor.clarification import clarification_node
+from polyplexity_agent.graphs.nodes.supervisor.direct_answer import direct_answer_node
+from polyplexity_agent.graphs.nodes.supervisor.final_report import final_report_node
+from polyplexity_agent.graphs.nodes.supervisor.supervisor import supervisor_node
+from polyplexity_agent.graphs.nodes.supervisor.summarize_conversation import summarize_conversation_node
 from polyplexity_agent.graphs.state import SupervisorState
-from polyplexity_agent.orchestrator import (
-    call_researcher_node,
-    clarification_node,
-    direct_answer_node,
-    final_report_node,
-    route_supervisor,
-    supervisor_node,
-)
-from polyplexity_agent.summarizer import summarize_conversation_node
 from polyplexity_agent.testing import draw_graph
+
+
+def route_supervisor(state: SupervisorState):
+    """Routes based on next_topic and answer_format constraints."""
+    next_topic = state.get("next_topic", "")
+    answer_format = state.get("answer_format", "concise")
+    current_loop = state.get("iterations", 0)
+    if next_topic.startswith("CLARIFY:"):
+        return "clarification"
+    if next_topic == "FINISH":
+        if state.get("research_notes"):
+            return "final_report"
+        return "direct_answer"
+    if answer_format == "concise":
+        if current_loop >= 1:
+            return "final_report"
+    else:
+        if current_loop >= 5:
+            return "final_report"
+    return "call_researcher"
 
 
 def _ensure_checkpointer_setup(checkpointer: Optional[Any]) -> Optional[Any]:

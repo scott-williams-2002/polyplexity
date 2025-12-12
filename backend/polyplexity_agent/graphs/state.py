@@ -5,7 +5,9 @@ Uses TypedDict for type safety and Annotated reducers for state accumulation.
 import operator
 from typing import Annotated, Dict, List, Optional, TypedDict
 
-from polyplexity_agent.summarizer import manage_chat_history
+# Import manage_chat_history - this creates a circular dependency that is resolved
+# by importing state classes before importing supervisor nodes in __init__.py
+from polyplexity_agent.graphs.nodes.supervisor.summarize_conversation import manage_chat_history
 
 
 class ResearcherState(TypedDict):

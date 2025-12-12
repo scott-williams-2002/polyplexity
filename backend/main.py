@@ -1,5 +1,15 @@
 """
 FastAPI application that wraps LangGraph agent with SSE streaming support.
+
+Package Installation Requirement:
+    The polyplexity_agent package must be installed in editable mode before running this application.
+    
+    Installation command:
+        cd polyplexity_agent
+        pip install -e .
+    
+    This allows main.py to import from the installed package:
+        from polyplexity_agent import _checkpointer, main_graph, run_research_agent
 """
 import json
 import sys
@@ -13,6 +23,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+# Import from installed polyplexity_agent package
+# Package must be installed: cd polyplexity_agent && pip install -e .
 from polyplexity_agent import _checkpointer, main_graph, run_research_agent
 from polyplexity_agent.db_utils import get_database_manager
 from polyplexity_agent.db_utils.db_setup import setup_checkpointer
