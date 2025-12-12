@@ -3,7 +3,7 @@ import { ChatInterface } from './components/ChatInterface';
 import { InputArea } from './components/InputArea';
 import { Message } from './types';
 import { generateId } from './lib/utils';
-import { Library, MessageSquare, Trash2 } from './components/ui/Icons';
+import { MessageSquare, Trash2 } from './components/ui/Icons';
 import { useChatStream } from './hooks/useChatStream';
 import { useThreads } from './hooks/useThreads';
 import { getThreadHistory } from './lib/api';
@@ -267,10 +267,10 @@ export default function App() {
       {/* Sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-muted/10 p-4">
         <div className="flex items-center gap-2 mb-6 px-2">
-           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-             <Library className="text-primary-foreground w-5 h-5" />
-           </div>
-           <span className="font-bold text-lg tracking-tight">Perplex-Chat</span>
+           <img src="/logo.jpeg" alt="PolyPlexity" className="w-12 h-12 rounded-lg object-cover" />
+           <span className="font-bold text-lg tracking-tight">
+             <span className="text-purple-400">Poly</span><span className="text-black">Plexity</span>
+           </span>
         </div>
         
         <button
@@ -279,7 +279,6 @@ export default function App() {
         >
           <div className="w-4 h-4 rounded-full border border-current opacity-60" />
           <span>New Thread</span>
-          <span className="ml-auto text-xs opacity-50">Cmd+N</span>
         </button>
 
         <div className="flex-1 overflow-y-auto">
@@ -328,8 +327,11 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col relative h-full">
         {/* Header (Mobile) */}
-        <header className="md:hidden flex items-center justify-center h-14 border-b border-border bg-background/50 backdrop-blur-sm sticky top-0 z-40">
-           <span className="font-semibold">Perplex-Chat</span>
+        <header className="md:hidden flex items-center justify-center gap-2 h-14 border-b border-border bg-background/50 backdrop-blur-sm sticky top-0 z-40">
+           <img src="/logo.jpeg" alt="PolyPlexity" className="w-9 h-9 rounded-lg object-cover" />
+           <span className="font-semibold">
+             <span className="text-purple-400">Poly</span><span className="text-black">Plexity</span>
+           </span>
         </header>
 
         <ChatInterface messages={messages} isGenerating={isStreaming} />

@@ -102,6 +102,13 @@ TASK: Write a brief, convincing blurb (2-4 sentences) that:
 3. Makes it sound like a natural, helpful recommendation
 4. Explains why these markets might be interesting based on what was discussed
 
+FORMATTING REQUIREMENTS:
+- Structure the text in markdown format
+- Use **bold** text to emphasize key points
+- You may include a few bullet points if helpful
+- Do NOT use tables
+- Keep the entire section brief and concise
+
 EXAMPLES:
 - "Based on your question about hot rods, you might be interested in testing your knowledge on this Polymarket market about NASCAR because..."
 - "We just talked about the history of sports in my response, you should check out what people think the Mavericks game result will be..."

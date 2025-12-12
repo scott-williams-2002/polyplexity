@@ -420,14 +420,6 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
               </div>
             )}
 
-            {/* Raw Market JSON */}
-            <div className="px-3 py-3 rounded-lg bg-muted/30 border border-border/50">
-              <h4 className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wider">Raw Market Data</h4>
-              <pre className="text-[10px] font-mono text-muted-foreground overflow-x-auto whitespace-pre-wrap break-words">
-                {JSON.stringify(market, null, 2)}
-              </pre>
-            </div>
-
             {/* Outcomes/Token Data */}
             {tokenDataList.map((tokenData) => {
               const isHovered = hoveredClobTokenId === tokenData.clobTokenId;

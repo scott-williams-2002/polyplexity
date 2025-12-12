@@ -17,6 +17,31 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
   
   // Auto-collapse reasoning when answer starts streaming, but keep open during 'reasoning' stage
   const [isReasoningOpen, setIsReasoningOpen] = useState(true);
+  
+  // Loading messages for Polymarket data
+  const loadingMessages = [
+    "Analyzing markets...",
+    "Fetching market data...",
+    "Preparing market insights...",
+  ];
+  const [currentLoadingMessageIndex, setCurrentLoadingMessageIndex] = useState(0);
+  
+  // Detect if we're waiting for Polymarket data
+  const isWaitingForPolymarket = 
+    message.finalReportComplete && 
+    !message.polymarketBlurb && 
+    (!message.approvedMarkets || message.approvedMarkets.length === 0);
+  
+  // Rotate loading messages
+  useEffect(() => {
+    if (isWaitingForPolymarket) {
+      const interval = setInterval(() => {
+        setCurrentLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length);
+      }, 2000); // Change message every 2 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [isWaitingForPolymarket, loadingMessages.length]);
 
   // Compute sticky positioning on every render (which happens on every stream event)
   // Check multiple conditions: stage, isStreaming, and finalReportComplete flag
@@ -153,9 +178,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
 
       </div>
 
+      {/* Loading messages while waiting for Polymarket data */}
+      {isWaitingForPolymarket && (
+        <div className="mt-6 flex items-center gap-2 text-purple-400/80">
+          <span className="w-2 h-2 bg-purple-400/60 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+          <span className="w-2 h-2 bg-purple-400/60 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+          <span className="w-2 h-2 bg-purple-400/60 rounded-full animate-bounce"></span>
+          <span className="text-sm font-medium ml-2">{loadingMessages[currentLoadingMessageIndex]}</span>
+        </div>
+      )}
+
       {/* Polymarket Blurb - Displayed above charts */}
       {message.polymarketBlurb && (
-        <div className="mt-6 px-4 py-3 rounded-lg bg-muted/30 border border-border/50">
+        <div className="mt-6 px-4 py-3 rounded-lg bg-muted/30 border-2 border-purple-500/30">
+          <h3 className="text-sm font-semibold text-purple-400 mb-2">Polymarket Agent Suggestions ...</h3>
           <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground">
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
