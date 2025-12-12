@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, LinkIcon, Library, Globe, ChevronUp } from './ui/Icons';
+import { Send } from './ui/Icons';
 import { cn } from '../lib/utils';
 
 interface InputAreaProps {
@@ -54,12 +54,7 @@ export const InputArea: React.FC<InputAreaProps> = ({ onSend, disabled }) => {
             rows={1}
           />
           
-          <div className="flex items-center justify-between px-2 pb-2">
-            <div className="flex items-center gap-1">
-               <ToolButton icon={<Globe className="w-4 h-4" />} label="Focus" />
-               <ToolButton icon={<LinkIcon className="w-4 h-4" />} label="Attach" />
-            </div>
-            
+          <div className="flex items-center justify-end px-2 pb-2">
             <button
               onClick={handleSubmit}
               disabled={!input.trim() || disabled}
@@ -84,10 +79,3 @@ export const InputArea: React.FC<InputAreaProps> = ({ onSend, disabled }) => {
     </div>
   );
 };
-
-const ToolButton = ({ icon, label }: { icon: React.ReactNode, label: string }) => (
-  <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-background rounded-full transition-colors">
-    {icon}
-    <span>{label}</span>
-  </button>
-);

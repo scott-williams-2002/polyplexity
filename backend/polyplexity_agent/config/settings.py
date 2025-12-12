@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # State logs configuration
     state_logs_dir: Optional[Path] = None
     
+    # Polymarket event filtering configuration
+    max_event_lookback_days: int = 30
+    
     model_config = ConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

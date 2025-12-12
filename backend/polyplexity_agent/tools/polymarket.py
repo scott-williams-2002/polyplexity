@@ -6,9 +6,12 @@ including searching for markets, fetching events by tag ID, retrieving
 tag batches, and processing market data structures.
 """
 import json
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import requests
+
+from polyplexity_agent.config import Settings
 
 POLYMARKET_SEARCH_URL = "https://gamma-api.polymarket.com/public-search"
 POLYMARKET_EVENTS_URL = "https://gamma-api.polymarket.com/events"
@@ -251,21 +254,48 @@ def fetch_events_by_tag_id(tag_id: str) -> List[Dict[str, Any]]:
     Fetch events from Polymarket API filtered by tag ID.
 
     Retrieves all events associated with a specific tag ID and processes
-    them into simplified event structures with market data.
+    them into simplified event structures with market data. Only includes
+    events where updatedAt is within the configured lookback period.
 
     Args:
         tag_id: The tag ID to filter events by.
 
     Returns:
         A list of simplified event dictionaries, each containing processed
-        market data for events matching the tag.
+        market data for events matching the tag and within the lookback period.
 
     Raises:
         requests.HTTPError: If the API request fails.
     """
+    settings = Settings()
+    lookback_cutoff = datetime.now() - timedelta(days=settings.max_event_lookback_days)
+    
     params = {"tag_id": tag_id}
     response = requests.get(POLYMARKET_EVENTS_URL, params=params)
     response.raise_for_status()
     events = response.json()
-    return [_process_event(event) for event in events]
+    
+    filtered_events = []
+    for event in events:
+        updated_at_str = event.get("updatedAt")
+        if not updated_at_str:
+            continue
+        
+        try:
+            # Parse ISO datetime string (handles formats like "2024-01-15T10:30:00Z" or "2024-01-15T10:30:00.000Z")
+            updated_at_str_normalized = updated_at_str.replace("Z", "+00:00")
+            updated_at = datetime.fromisoformat(updated_at_str_normalized)
+            
+            # Convert to naive datetime for comparison (remove timezone info)
+            if updated_at.tzinfo:
+                updated_at = updated_at.replace(tzinfo=None)
+            
+            # Only include events where updatedAt >= (now - lookback_days)
+            if updated_at >= lookback_cutoff:
+                filtered_events.append(event)
+        except (ValueError, AttributeError):
+            # Skip events with invalid datetime format
+            continue
+    
+    return [_process_event(event) for event in filtered_events]
 

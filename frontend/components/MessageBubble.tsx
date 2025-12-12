@@ -6,7 +6,6 @@ import { MarketChartsContainer } from './MarketChartsContainer';
 import { cn } from '../lib/utils';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, RefreshCw, ThumbsUp, ThumbsDown } from './ui/Icons';
 
 interface MessageBubbleProps {
   message: Message;
@@ -152,16 +151,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
           )}
         </div>
 
-        {/* Footer Actions (Only show when some content exists) */}
-        {(message.content || message.stage === 'completed') && (
-          <div className="flex items-center gap-2 mt-4 pt-2">
-            <ActionButton icon={<Copy className="w-4 h-4" />} label="Copy" />
-            <ActionButton icon={<RefreshCw className="w-4 h-4" />} label="Rewrite" />
-            <div className="flex-grow" />
-            <ActionButton icon={<ThumbsUp className="w-4 h-4" />} />
-            <ActionButton icon={<ThumbsDown className="w-4 h-4" />} />
-          </div>
-        )}
       </div>
 
       {/* Polymarket Blurb - Displayed above charts */}
@@ -195,10 +184,3 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
     </div>
   );
 };
-
-const ActionButton = ({ icon, label }: { icon: React.ReactNode, label?: string }) => (
-  <button className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors">
-    {icon}
-    {label && <span>{label}</span>}
-  </button>
-);

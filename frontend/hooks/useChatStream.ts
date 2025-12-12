@@ -389,9 +389,6 @@ export function useChatStream({
   }, [handleEvent, onMessageSent]);
 
   const reset = useCallback(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/5926f707-95e8-4111-b824-adadbab0a6a6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useChatStream.ts:373',message:'reset called',data:{approvedMarketsCount:approvedMarketsRef.current.length,hasPolymarketBlurb:!!polymarketBlurbRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     setIsStreaming(false);
     setStreamingContent("");
     setExecutionTrace([]);

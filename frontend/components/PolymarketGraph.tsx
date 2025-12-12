@@ -12,6 +12,19 @@ import { format } from 'date-fns';
 import { PricePoint, ApprovedMarket } from '../types';
 import { fetchPriceHistory } from '../services/polymarketService';
 
+// Polymarket affiliate link constants
+const POLYMARKET_BASE_URL = "https://polymarket.com";
+const POLYMARKET_AFFILIATE_PARAM = "via=polycommand";
+
+/**
+ * Builds a Polymarket event URL with affiliate parameter
+ * @param slug - The market event slug
+ * @returns Full URL to Polymarket event page with affiliate tracking
+ */
+const buildEventUrl = (slug: string): string => {
+  return `${POLYMARKET_BASE_URL}/event/${slug}?${POLYMARKET_AFFILIATE_PARAM}`;
+};
+
 interface PolymarketChartProps {
   market: ApprovedMarket;
 }
@@ -41,6 +54,7 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
   const [selectedClobTokenId, setSelectedClobTokenId] = useState<string | null>(null);
   const [hoveredPrice, setHoveredPrice] = useState<number | null>(null);
   const [hoveredDate, setHoveredDate] = useState<number | null>(null);
+  const [isDescriptionOpen, setIsDescriptionOpen] = useState<boolean>(false);
 
   const sidebarRef = useRef<HTMLDivElement>(null);
   const tokenRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -109,8 +123,42 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
     return sortedTimestamps.map(timestamp => {
       const point: any = { t: timestamp };
       tokenDataList.forEach(tokenData => {
-        // Find the closest price point for this timestamp
-        const pricePoint = tokenData.data.find(p => p.t === timestamp);
+        // Find exact match first
+        let pricePoint = tokenData.data.find(p => p.t === timestamp);
+        
+        // If no exact match, find the closest point (for interpolation)
+        if (!pricePoint && tokenData.data.length > 0) {
+          const sortedData = [...tokenData.data].sort((a, b) => a.t - b.t);
+          // Find the point before and after this timestamp
+          let before: PricePoint | undefined;
+          let after: PricePoint | undefined;
+          
+          for (let i = sortedData.length - 1; i >= 0; i--) {
+            if (sortedData[i].t <= timestamp) {
+              before = sortedData[i];
+              break;
+            }
+          }
+          
+          for (let i = 0; i < sortedData.length; i++) {
+            if (sortedData[i].t >= timestamp) {
+              after = sortedData[i];
+              break;
+            }
+          }
+          
+          if (before && after) {
+            // Linear interpolation
+            const ratio = (timestamp - before.t) / (after.t - before.t);
+            const interpolatedPrice = before.p + (after.p - before.p) * ratio;
+            pricePoint = { t: timestamp, p: interpolatedPrice };
+          } else if (before) {
+            pricePoint = before;
+          } else if (after) {
+            pricePoint = after;
+          }
+        }
+        
         if (pricePoint) {
           point[tokenData.clobTokenId] = pricePoint.p;
         }
@@ -197,9 +245,15 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
             Polymarket Insight
             {loading && <span className="w-2 h-2 rounded-full bg-primary animate-ping" />}
           </h2>
-          <h1 className="text-xl font-bold text-foreground tracking-tight leading-tight truncate">
+          <a
+            href={buildEventUrl(market.eventSlug)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xl font-bold text-foreground tracking-tight leading-tight truncate hover:text-primary hover:underline transition-colors cursor-pointer block"
+            title={`View on Polymarket: ${market.question}`}
+          >
             {market.question}
-          </h1>
+          </a>
         </div>
         <div className="flex items-end gap-6 ml-4">
            <div className="text-right">
@@ -283,8 +337,8 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
                   const isHovered = hoveredClobTokenId === tokenData.clobTokenId;
                   const isSelected = selectedClobTokenId === tokenData.clobTokenId;
                   const isActive = isHovered || isSelected;
-                  const strokeWidth = isActive ? 3 : 2;
-                  const strokeOpacity = isActive ? 1 : 0.7;
+                  const strokeWidth = isActive ? 5 : 2;
+                  const strokeOpacity = isActive ? 1 : 0.4;
                   
                   return (
                     <Area
@@ -293,11 +347,13 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
                       dataKey={tokenData.clobTokenId}
                       stroke={tokenData.color.stroke}
                       strokeWidth={strokeWidth}
-                      fillOpacity={isActive ? tokenData.color.fillOpacity * 1.5 : tokenData.color.fillOpacity}
+                      fillOpacity={isActive ? tokenData.color.fillOpacity * 2 : tokenData.color.fillOpacity * 0.5}
                       fill={`url(#${gradientIds[idx]})`}
                       isAnimationActive={true}
                       animationDuration={1000}
                       strokeOpacity={strokeOpacity}
+                      connectNulls={true}
+                      style={isActive ? { filter: 'drop-shadow(0 0 4px ' + tokenData.color.stroke + ')' } : {}}
                     />
                   );
                 })}
@@ -323,6 +379,47 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
             ref={sidebarRef}
             className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar"
           >
+            {/* Market Description Dropdown */}
+            {market.description && (
+              <div className="rounded-lg bg-muted/30 border border-border/50 overflow-hidden">
+                <button
+                  onClick={() => setIsDescriptionOpen(!isDescriptionOpen)}
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/40 transition-colors"
+                >
+                  <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                    Market Rules
+                  </h4>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`text-muted-foreground transition-transform duration-200 ${
+                      isDescriptionOpen ? 'rotate-180' : ''
+                    }`}
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    isDescriptionOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                >
+                  <div className="px-4 pb-4 pt-2">
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                      {market.description}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Raw Market JSON */}
             <div className="px-3 py-3 rounded-lg bg-muted/30 border border-border/50">
               <h4 className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wider">Raw Market Data</h4>
@@ -353,10 +450,9 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
                   ref={(el) => (tokenRefs.current[tokenData.clobTokenId] = el)}
                   className={`
                     relative px-5 py-4 rounded-2xl transition-all duration-300 ease-out cursor-pointer
-                    border border-transparent
                     ${isActive 
-                      ? 'bg-muted/50 shadow-sm border-border/50' 
-                      : 'bg-white hover:bg-muted/30'}
+                      ? 'bg-muted/70 shadow-lg border-2 border-border' 
+                      : 'bg-white hover:bg-muted/30 border border-transparent'}
                   `}
                   onMouseEnter={() => {
                     setHoveredClobTokenId(tokenData.clobTokenId);
@@ -371,15 +467,19 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
                     }
                   }}
                   onClick={() => {
-                    setSelectedClobTokenId(
-                      selectedClobTokenId === tokenData.clobTokenId ? null : tokenData.clobTokenId
-                    );
+                    // If clicking the already selected item, deselect it
+                    // Otherwise, select this one (automatically deselects any other)
+                    if (selectedClobTokenId === tokenData.clobTokenId) {
+                      setSelectedClobTokenId(null);
+                    } else {
+                      setSelectedClobTokenId(tokenData.clobTokenId);
+                    }
                   }}
                 >
                   {/* Color Indicator Bar */}
                   {isActive && (
                      <div 
-                       className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r-full"
+                       className="absolute left-0 top-3 bottom-3 w-[5px] rounded-r-full shadow-sm"
                        style={{ backgroundColor: tokenData.color.stroke }}
                      /> 
                   )}

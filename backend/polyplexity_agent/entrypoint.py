@@ -170,25 +170,6 @@ def run_research_agent(
                         if node_name == "call_market_research" and "approved_markets" in node_data:
                             approved_markets = node_data.get("approved_markets")
                             if isinstance(approved_markets, list) and len(approved_markets) > 0:
-                                # #region agent log
-                                import json
-                                import os
-                                log_path = "/Users/scottwilliams/Desktop/tenex_application/.cursor/debug.log"
-                                log_entry = json.dumps({
-                                    "location": "entrypoint.py:170",
-                                    "message": "collecting approved_markets state_update",
-                                    "data": {"node": node_name, "approvedMarketsCount": len(approved_markets)},
-                                    "timestamp": int(__import__("time").time() * 1000),
-                                    "sessionId": "debug-session",
-                                    "runId": "run1",
-                                    "hypothesisId": "E"
-                                }) + "\n"
-                                try:
-                                    with open(log_path, "a") as f:
-                                        f.write(log_entry)
-                                except:
-                                    pass
-                                # #endregion
                                 state_update_event = create_trace_event(
                                     "state_update",
                                     "call_market_research",
@@ -199,25 +180,6 @@ def run_research_agent(
                         if node_name == "rewrite_polymarket_response" and "polymarket_blurb" in node_data:
                             polymarket_blurb = node_data.get("polymarket_blurb")
                             if isinstance(polymarket_blurb, str) and len(polymarket_blurb) > 0:
-                                # #region agent log
-                                import json
-                                import os
-                                log_path = "/Users/scottwilliams/Desktop/tenex_application/.cursor/debug.log"
-                                log_entry = json.dumps({
-                                    "location": "entrypoint.py:189",
-                                    "message": "collecting polymarket_blurb state_update",
-                                    "data": {"node": node_name, "blurbLength": len(polymarket_blurb)},
-                                    "timestamp": int(__import__("time").time() * 1000),
-                                    "sessionId": "debug-session",
-                                    "runId": "run1",
-                                    "hypothesisId": "E"
-                                }) + "\n"
-                                try:
-                                    with open(log_path, "a") as f:
-                                        f.write(log_entry)
-                                except:
-                                    pass
-                                # #endregion
                                 state_update_event = create_trace_event(
                                     "state_update",
                                     "rewrite_polymarket_response",
@@ -233,26 +195,6 @@ def run_research_agent(
                 yield mode, data
         
         if _checkpointer and thread_id:
-            # #region agent log
-            import json
-            import os
-            log_path = "/Users/scottwilliams/Desktop/tenex_application/.cursor/debug.log"
-            state_update_count = sum(1 for e in question_execution_trace if e.get("type") == "state_update")
-            log_entry = json.dumps({
-                "location": "entrypoint.py:200",
-                "message": "saving execution trace",
-                "data": {"totalEvents": len(question_execution_trace), "stateUpdateEvents": state_update_count},
-                "timestamp": int(__import__("time").time() * 1000),
-                "sessionId": "debug-session",
-                "runId": "run1",
-                "hypothesisId": "E"
-            }) + "\n"
-            try:
-                with open(log_path, "a") as f:
-                    f.write(log_entry)
-            except:
-                pass
-            # #endregion
             ensure_trace_completeness(thread_id, question_execution_trace)
     finally:
         if _state_logger:
