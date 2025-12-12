@@ -10,13 +10,20 @@ from urllib.parse import urlparse
 from langchain_core.messages import HumanMessage
 from langchain_groq import ChatGroq
 
+from polyplexity_agent.config import Settings
 from polyplexity_agent.db_utils import get_database_manager
 
 from polyplexity_agent.prompts.thread_prompts import THREAD_NAME_GENERATION_PROMPT_TEMPLATE
 
 
+# Application settings
+_settings = Settings()
+
 # Lightweight model for fast thread name generation
-_thread_name_model = ChatGroq(model="llama-3.1-8b-instant", temperature=0.3)
+_thread_name_model = ChatGroq(
+    model=_settings.thread_name_model,
+    temperature=_settings.thread_name_temperature
+)
 
 
 def format_date() -> str:
@@ -24,17 +31,21 @@ def format_date() -> str:
     return datetime.now().strftime("%m %d %y")
 
 
-def create_llm_model(model_name: str = "openai/gpt-oss-120b", temperature: float = 0) -> ChatGroq:
+def create_llm_model(model_name: Optional[str] = None, temperature: Optional[float] = None) -> ChatGroq:
     """
     Create a ChatGroq LLM model instance.
     
     Args:
-        model_name: Model identifier
-        temperature: Temperature setting
+        model_name: Model identifier (defaults to settings.model_name)
+        temperature: Temperature setting (defaults to settings.temperature)
         
     Returns:
         ChatGroq model instance
     """
+    if model_name is None:
+        model_name = _settings.model_name
+    if temperature is None:
+        temperature = _settings.temperature
     return ChatGroq(model=model_name, temperature=temperature)
 
 

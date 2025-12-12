@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
-from .db_config import get_postgres_connection_string
+from polyplexity_agent.config.secrets import get_postgres_connection_string
 from .db_schema import Base, ExecutionTrace, Message, Thread
 
 

@@ -15,5 +15,5 @@ classifiers = [
 ]
 
 [tool.setuptools.packages.find]
-where = [".."]
+where = ["."]
 include = ["polyplexity_agent*"]

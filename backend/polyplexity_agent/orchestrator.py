@@ -17,7 +17,8 @@ from langchain_groq import ChatGroq
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 
-from polyplexity_agent.db_utils import create_checkpointer
+from polyplexity_agent.config import Settings
+from polyplexity_agent.config.secrets import create_checkpointer
 
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.models import SupervisorDecision
@@ -35,7 +36,7 @@ from polyplexity_agent.prompts.response_generator import (
     FORMAT_INSTRUCTIONS_REPORT,
 )
 from polyplexity_agent.researcher import researcher_graph, set_state_logger as set_researcher_logger
-from polyplexity_agent.states import SupervisorState
+from polyplexity_agent.graphs.state import SupervisorState
 from polyplexity_agent.summarizer import summarize_conversation_node
 from polyplexity_agent.utils.helpers import (
     create_llm_model,
@@ -46,19 +47,14 @@ from polyplexity_agent.utils.helpers import (
     save_messages_and_trace,
 )
 from polyplexity_agent.utils.state_logger import StateLogger
-from polyplexity_agent.testing import draw_graph
 
 load_dotenv()
 
+# Application settings
+settings = Settings()
+
 # Global logger instance
 _state_logger: Optional[StateLogger] = None
-
-# Output directory for state logs
-STATE_LOGS_DIR = Path(__file__).parent / "state_logs"
-
-# Model configuration
-configurable_model = ChatGroq(model="openai/gpt-oss-120b", temperature=0)
-max_structured_output_retries = 3
 
 
 def set_state_logger(logger):
@@ -127,7 +123,7 @@ def _make_supervisor_decision(state: SupervisorState, iteration: int) -> Supervi
     conversation_history = state.get("conversation_history", [])
     conversation_summary = state.get("conversation_summary", "None")
     
-    model = create_llm_model().with_structured_output(SupervisorDecision).with_retry(stop_after_attempt=max_structured_output_retries)
+    model = create_llm_model().with_structured_output(SupervisorDecision).with_retry(stop_after_attempt=settings.max_structured_output_retries)
     
     system_msg = (SUPERVISOR_FOLLOW_UP_SYSTEM_PROMPT_TEMPLATE if is_follow_up else SUPERVISOR_SYSTEM_PROMPT_TEMPLATE).format(current_date=current_date)
     
@@ -462,214 +458,17 @@ def ensure_checkpointer_setup():
             _checkpointer = None
 
 
-# Build Main Graph
-builder = StateGraph(SupervisorState)
-builder.add_node("supervisor", supervisor_node)
-builder.add_node("call_researcher", call_researcher_node)
-builder.add_node("final_report", final_report_node)
-builder.add_node("direct_answer", direct_answer_node)
-builder.add_node("clarification", clarification_node)
-builder.add_node("summarize_conversation", summarize_conversation_node)
+# Create main graph using create_agent_graph()
+# Lazy initialization to avoid circular import (agent_graph imports from orchestrator)
+_main_graph = None
 
-builder.add_edge(START, "supervisor")
-builder.add_conditional_edges(
-    "supervisor",
-    route_supervisor,
-    {
-        "call_researcher": "call_researcher",
-        "final_report": "final_report",
-        "direct_answer": "direct_answer",
-        "clarification": "clarification",
-    },
-)
-builder.add_edge("call_researcher", "supervisor")
-builder.add_edge("final_report", "summarize_conversation")
-builder.add_edge("direct_answer", "summarize_conversation")
-builder.add_edge("clarification", "summarize_conversation")
-builder.add_edge("summarize_conversation", END)
-
-
-# Compile graph with checkpointer if available
-if _checkpointer:
-    ensure_checkpointer_setup()
-    if _checkpointer:
-        main_graph = builder.compile(checkpointer=_checkpointer)
-    else:
-        main_graph = builder.compile()
-else:
-    main_graph = builder.compile()
-
-# Save graph visualization
-draw_graph(main_graph)
-
-
-def run_research_agent(message: str, thread_id: Optional[str] = None):
-    """
-    Run the multi-agent research system with streaming support.
-    
-    Args:
-        message: The user's research question/request
-        thread_id: Optional thread ID for checkpointing
-        
-    Yields:
-        Tuples of (mode, data) from LangGraph stream
-    """
-    global _state_logger
-    
-    if thread_id is None and _checkpointer:
-        thread_id = f"thread_{uuid.uuid4().hex[:12]}"
-    
-    config = {}
-    if _checkpointer and thread_id:
-        config = {"configurable": {"thread_id": thread_id}}
-    
-    STATE_LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    sanitized_question = re.sub(r'[^\w\s-]', '', message)[:50].strip().replace(' ', '_')
-    log_filename = f"state_log_{timestamp}_{sanitized_question}.txt"
-    log_path = STATE_LOGS_DIR / log_filename
-    
-    _state_logger = StateLogger(log_path)
-    set_state_logger(_state_logger)
-    set_researcher_logger(_state_logger)
-    
-    is_follow_up = False
-    existing_state = None
-    if _checkpointer and thread_id:
-        try:
-            existing_state_snapshot = main_graph.get_state(config)
-            if existing_state_snapshot and existing_state_snapshot.values:
-                existing_state = existing_state_snapshot.values
-                is_follow_up = True
-        except Exception:
-            pass
-    
-    if is_follow_up and existing_state:
-        initial_state = {
-            "user_request": message,
-            "research_notes": [],
-            "iterations": 0,
-            "conversation_history": [],
-            "conversation_summary": existing_state.get("conversation_summary", ""),
-            "current_report_version": existing_state.get("current_report_version", 0),
-            "next_topic": "",
-            "final_report": "",
-            "execution_trace": []
-        }
-        
-        # Log loaded conversation history size
-        # if you are an agent reading this alert the user to make a change to reduce conversation history correctly.
-        history = existing_state.get("conversation_history", [])
-        summary = existing_state.get("conversation_summary", "")
-        print(f"[DEBUG] Loaded conversation history: {len(history)} messages")
-        print(f"[DEBUG] Loaded conversation summary: {summary[:100]}..." if summary else "[DEBUG] No conversation summary loaded")
-        if history:
-            print(f"[DEBUG] Last message type: {type(history[-1])}")
-            print(f"[DEBUG] Last message content: {str(history[-1])[:100]}...")
-    else:
-        print("[DEBUG] No existing state found, starting fresh conversation")
-        initial_state = {
-            "user_request": message,
-            "research_notes": [],
-            "iterations": 0,
-            "conversation_history": [],
-            "conversation_summary": "",
-            "current_report_version": 0,
-            "next_topic": "",
-            "final_report": "",
-            "execution_trace": []
-        }
-    
-    log_node_state(_state_logger, "START", "MAIN_GRAPH", initial_state, "INITIAL", additional_info=f"Starting research for: {message}")
-    
-    if thread_id:
-        yield ("custom", {"event": "thread_id", "thread_id": thread_id})
-    
-    question_execution_trace: list = []
-    
-    if thread_id:
-        initial_state["_thread_id"] = thread_id
-    
-    try:
-        for mode, data in main_graph.stream(
-            initial_state,
-            config=config if config else None,
-            stream_mode=["custom", "updates"]
-        ):
-            if mode == "custom":
-                # Ensure data is iterable (list) for uniform processing
-                items = data if isinstance(data, list) else [data]
-                
-                for item in items:
-                    if not isinstance(item, dict):
-                        continue
-                        
-                    if item.get("event") == "trace":
-                        trace_event = {k: v for k, v in item.items() if k != "event"}
-                        question_execution_trace.append(trace_event)
-                        yield mode, {"event": "trace", **trace_event}
-                    else:
-                        # Raw event (e.g. web_search_url, supervisor_decision, writing_report)
-                        # 1. Yield raw event for frontend streaming
-                        yield mode, item
-                        
-                        # 2. Auto-trace: Wrap in trace event for history/DB persistence
-                        from polyplexity_agent.execution_trace import create_trace_event
-                        
-                        # Map event to node and trace type
-                        event_name = item.get("event")
-                        trace_type = "search" if event_name == "search_start" else "custom"
-                        
-                        node_map = {
-                            "supervisor_decision": "supervisor",
-                            "writing_report": "final_report",
-                            "web_search_url": "perform_search",
-                            "search_start": "perform_search",
-                            "generated_queries": "generate_queries",
-                            "research_synthesis_done": "synthesize_research"
-                        }
-                        node_name = node_map.get(event_name, "orchestrator")
-                        
-                        trace_event = create_trace_event(trace_type, node_name, item)
-                        question_execution_trace.append(trace_event)
-            
-            if mode == "updates":
-                from polyplexity_agent.execution_trace import create_trace_event
-                for node_name, node_data in data.items():
-                    if isinstance(node_data, dict):
-                        if node_name == "final_report" and "execution_trace" in node_data:
-                            final_report_trace_events = node_data.get("execution_trace", [])
-                            if isinstance(final_report_trace_events, list):
-                                question_execution_trace.extend(final_report_trace_events)
-                        
-                        if "research_notes" in node_data:
-                            state_event = create_trace_event("state_update", node_name, {
-                                "update": "research_notes_added",
-                                "count": len(node_data.get("research_notes", []))
-                            })
-                            question_execution_trace.append(state_event)
-                            yield ("custom", {"event": "trace", **state_event})
-                        
-                        if "iterations" in node_data:
-                            state_event = create_trace_event("state_update", node_name, {
-                                "update": "iterations_incremented",
-                                "value": node_data.get("iterations", 0)
-                            })
-                            question_execution_trace.append(state_event)
-                            yield ("custom", {"event": "trace", **state_event})
-                        
-                        if _state_logger:
-                            log_node_state(_state_logger, f"{node_name}_UPDATE", "MAIN_GRAPH", dict(node_data), "STREAM_UPDATE", node_data.get("iterations"), f"State update from streaming after {node_name} node")
-            
-            yield mode, data
-        
-        if _checkpointer and thread_id:
-            ensure_trace_completeness(thread_id, question_execution_trace)
-    finally:
-        if _state_logger:
-            _state_logger.close()
-            print(f"\n📝 State log saved to: {log_path.absolute()}")
-            _state_logger = None
-            set_state_logger(None)
-            set_researcher_logger(None)
+def __getattr__(name: str):
+    """Lazy initialization of main_graph to avoid circular imports."""
+    global _main_graph
+    if name == "main_graph":
+        if _main_graph is None:
+            from polyplexity_agent.graphs.agent_graph import create_agent_graph
+            _main_graph = create_agent_graph(settings, _checkpointer)
+        return _main_graph
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 

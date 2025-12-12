@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 from langgraph.config import get_stream_writer
 from langchain_core.messages import HumanMessage
 
-from polyplexity_agent.states import MarketResearchState
+from polyplexity_agent.graphs.state import MarketResearchState
 from polyplexity_agent.tools.polymarket import search_markets, get_event_details
 from polyplexity_agent.prompts.market_prompts import (
     MARKET_QUERY_GENERATION_PROMPT,

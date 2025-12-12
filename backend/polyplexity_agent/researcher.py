@@ -11,6 +11,7 @@ from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 
+from polyplexity_agent.config import Settings
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.models import SearchQueries
 from polyplexity_agent.prompts.researcher import (
@@ -18,15 +19,14 @@ from polyplexity_agent.prompts.researcher import (
     QUERY_GENERATION_USER_PROMPT_TEMPLATE,
     RESEARCH_SYNTHESIS_PROMPT_TEMPLATE,
 )
-from polyplexity_agent.states import ResearcherState
+from polyplexity_agent.graphs.state import ResearcherState
 from polyplexity_agent.utils.helpers import create_llm_model, format_date, log_node_state, format_search_url_markdown
+
+# Application settings
+settings = Settings()
 
 # Global state logger instance
 _state_logger: Optional[object] = None
-
-# Model configuration
-configurable_model = ChatGroq(model="openai/gpt-oss-120b", temperature=0)
-max_structured_output_retries = 3
 
 
 def set_state_logger(logger):
@@ -38,7 +38,7 @@ def set_state_logger(logger):
 # Helper functions for node logic
 def _generate_queries_llm(state: ResearcherState) -> SearchQueries:
     """Generate search queries using LLM."""
-    model = create_llm_model().with_structured_output(SearchQueries).with_retry(stop_after_attempt=max_structured_output_retries)
+    model = create_llm_model().with_structured_output(SearchQueries).with_retry(stop_after_attempt=settings.max_structured_output_retries)
     system_prompt = QUERY_GENERATION_SYSTEM_PROMPT
     user_prompt = QUERY_GENERATION_USER_PROMPT_TEMPLATE.format(
         current_date=format_date(),

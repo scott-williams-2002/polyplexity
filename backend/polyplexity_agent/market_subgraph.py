@@ -1,5 +1,5 @@
 from langgraph.graph import StateGraph, END, START
-from polyplexity_agent.states import MarketResearchState
+from polyplexity_agent.graphs.state import MarketResearchState
 from polyplexity_agent.market_nodes import (
     generate_market_queries_node,
     fetch_markets_node,
