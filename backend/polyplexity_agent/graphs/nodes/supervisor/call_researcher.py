@@ -7,7 +7,7 @@ from langgraph.config import get_stream_writer
 
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.graphs.state import SupervisorState
-from polyplexity_agent.researcher import researcher_graph
+from polyplexity_agent.graphs.subgraphs.researcher import researcher_graph
 from polyplexity_agent.utils.helpers import log_node_state
 
 

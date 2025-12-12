@@ -16,7 +16,7 @@ from polyplexity_agent.orchestrator import (
     _state_logger,
     set_state_logger,
 )
-from polyplexity_agent.researcher import set_state_logger as set_researcher_logger
+from polyplexity_agent.graphs.subgraphs.researcher import set_state_logger as set_researcher_logger
 from polyplexity_agent.utils.helpers import (
     ensure_trace_completeness,
     log_node_state,
