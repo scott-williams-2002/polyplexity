@@ -1,0 +1,33 @@
+# Package dependencies for polyplexity-agent
+# Generated for uv environment
+# 
+# Core LangChain dependencies
+langchain-core>=1.0.0
+langchain-groq>=0.0.0
+langchain-tavily>=0.2.0
+
+# LangGraph dependencies
+langgraph>=0.0.0
+langgraph-checkpoint>=2.0.0
+langgraph-checkpoint-postgres>=2.0.0
+
+# Configuration and settings
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+
+# Logging
+structlog>=25.0.0
+
+# HTTP requests (for tools)
+requests>=2.32.0
+
+# Database (optional - only needed if using database features)
+SQLAlchemy>=2.0.0
+psycopg-binary>=3.0.0
+
+# Type hints and utilities
+typing-extensions>=4.0.0
+
+# Note: Testing dependencies (pytest, pytest-mock, etc.) are not included here
+# as they are typically installed separately in development environments

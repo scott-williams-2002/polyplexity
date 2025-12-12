@@ -254,18 +254,289 @@ Coverage reports exclude:
 4. **Keep tests focused**: Each test should verify one specific behavior
 5. **Use descriptive names**: Test function names should clearly describe what they test
 6. **Follow CODING_STYLE.md**: Use double quotes, type hints, Google docstrings
+7. **Test event emission**: Verify that nodes emit expected events
+8. **Test state accumulation**: Ensure accumulating fields work correctly
+9. **Test error handling**: Verify errors are handled gracefully and events are emitted
+
+## Common Testing Patterns
+
+### Testing with Structured Output
+
+When testing nodes that use structured output (Pydantic models):
+
+```python
+@pytest.mark.unit
+@patch("polyplexity_agent.utils.helpers.create_llm_model")
+def test_node_with_structured_output(mock_create_llm, sample_state):
+    """Test node that uses structured output."""
+    # Create mock structured response
+    mock_llm = Mock()
+    structured_response = Mock(spec=SupervisorDecision)
+    structured_response.next_step = "research"
+    structured_response.research_topic = "topic"
+    structured_response.reasoning = "reasoning"
+    
+    # Configure mock chain
+    mock_llm.with_structured_output.return_value.with_retry.return_value.invoke.return_value = structured_response
+    mock_create_llm.return_value = mock_llm
+    
+    # Execute
+    result = node_name(sample_state)
+    
+    # Assertions
+    assert result["next_topic"] == "topic"
+```
+
+### Testing Event Emission
+
+Verify that nodes emit expected events:
+
+```python
+@pytest.mark.unit
+@patch("langgraph.config.get_stream_writer")
+def test_node_emits_events(mock_get_writer, sample_state):
+    """Test that node emits expected events."""
+    mock_writer = Mock()
+    mock_get_writer.return_value = mock_writer
+    
+    # Execute node
+    result = node_name(sample_state)
+    
+    # Verify events were written
+    assert mock_writer.called
+    
+    # Check specific event
+    call_args_list = mock_writer.call_args_list
+    events = [call[0][0] for call in call_args_list]
+    
+    assert any(event.get("event") == "expected_event" for event in events)
+```
+
+### Testing State Accumulation
+
+Test that accumulating fields work correctly:
+
+```python
+@pytest.mark.unit
+def test_state_accumulation(sample_state):
+    """Test that accumulating fields accumulate correctly."""
+    state1 = sample_state.copy()
+    state1["research_notes"] = ["Note 1"]
+    
+    # First node execution
+    result1 = node_name(state1)
+    assert len(result1.get("research_notes", [])) == 1
+    
+    # Second node execution (simulating accumulation)
+    state2 = {**state1, **result1}
+    state2["research_notes"] = state1["research_notes"] + result1.get("research_notes", [])
+    result2 = another_node(state2)
+    
+    # Verify accumulation
+    assert len(state2["research_notes"]) >= 1
+```
+
+### Testing Subgraph Integration
+
+Test how subgraphs integrate with main graph:
+
+```python
+@pytest.mark.integration
+@patch("polyplexity_agent.graphs.subgraphs.researcher._state_logger")
+@patch("langgraph.config.get_stream_writer")
+def test_subgraph_integration(mock_get_writer, mock_logger, sample_state):
+    """Test subgraph integration with main graph."""
+    mock_writer = Mock()
+    mock_get_writer.return_value = mock_writer
+    
+    # Mock subgraph nodes
+    with patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.create_llm_model") as mock_llm:
+        # Setup mocks...
+        
+        # Execute subgraph
+        from polyplexity_agent.graphs.subgraphs.researcher import researcher_graph
+        result = researcher_graph.invoke(sample_state)
+        
+        # Verify subgraph events were forwarded
+        assert mock_writer.called
+        
+        # Verify result
+        assert "research_summary" in result
+```
+
+### Testing Error Scenarios
+
+Test various error conditions:
+
+```python
+@pytest.mark.unit
+def test_node_handles_api_error(sample_state):
+    """Test node handles API errors gracefully."""
+    with patch("polyplexity_agent.tools.polymarket.requests.get") as mock_get:
+        mock_get.side_effect = requests.RequestException("API error")
+        
+        with pytest.raises(Exception):
+            node_name(sample_state)
+        
+        # Verify error event was emitted (check via stream_writer mock)
+```
+
+### Testing Empty States
+
+Test nodes handle empty/minimal states:
+
+```python
+@pytest.mark.unit
+def test_node_with_empty_state():
+    """Test node handles empty state."""
+    empty_state = {
+        "user_request": "",
+        "research_notes": [],
+        "iterations": 0,
+    }
+    
+    result = node_name(empty_state)
+    
+    # Verify node doesn't crash and returns valid result
+    assert isinstance(result, dict)
+    assert "execution_trace" in result
+```
+
+### Testing Max Iterations
+
+Test nodes respect iteration limits:
+
+```python
+@pytest.mark.unit
+def test_node_max_iterations(sample_state):
+    """Test node handles max iterations."""
+    state = sample_state.copy()
+    state["iterations"] = 10  # Max iterations
+    
+    result = supervisor_node(state)
+    
+    # Verify node forces finish
+    assert result["next_topic"] == "FINISH"
+```
+
+## Edge Cases to Test
+
+1. **Empty states**: Nodes should handle empty/minimal states gracefully
+2. **Max iterations**: Nodes should respect iteration limits
+3. **Missing fields**: Nodes should handle missing optional fields
+4. **API failures**: Nodes should handle external API failures
+5. **LLM failures**: Nodes should handle LLM call failures
+6. **Database failures**: Nodes should handle database errors
+7. **Invalid state**: Nodes should handle invalid state gracefully
+8. **Concurrent execution**: Test thread safety if applicable
 
 ## Troubleshooting
 
 ### Tests fail with import errors
-Ensure the package is installed in editable mode:
+
+**Problem**: `ModuleNotFoundError: No module named 'polyplexity_agent'`
+
+**Solution**: Ensure the package is installed in editable mode:
 ```bash
 cd polyplexity/backend/polyplexity_agent
 pip install -e .
 ```
 
+**Verification**: 
+```bash
+python -c "from polyplexity_agent import run_research_agent; print('Package installed correctly')"
+```
+
 ### Fixtures not found
-Ensure `conftest.py` is in the `tests/` directory and pytest can find it.
+
+**Problem**: `FixtureNotFoundError: fixture 'mock_llm' not found`
+
+**Solution**: 
+1. Ensure `conftest.py` is in the `tests/` directory
+2. Verify pytest can find it: `pytest --collect-only`
+3. Check that fixture is defined in `conftest.py`
 
 ### Mock not working
-Check that you're patching the correct import path. Use the full module path where the function is used, not where it's defined.
+
+**Problem**: Mock not being applied, real function being called
+
+**Solution**: Check that you're patching the correct import path. Use the full module path where the function is **used**, not where it's defined:
+
+```python
+# Correct: Patch where it's used
+@patch("polyplexity_agent.graphs.nodes.supervisor.supervisor.create_llm_model")
+
+# Incorrect: Patch where it's defined
+@patch("polyplexity_agent.utils.helpers.create_llm_model")
+```
+
+**Debugging**: Add print statements or use `mock_create_llm.assert_called()` to verify mock is being used.
+
+### State logger errors
+
+**Problem**: `AttributeError: 'NoneType' object has no attribute 'write'`
+
+**Solution**: Mock state logger in tests:
+```python
+@patch("polyplexity_agent.utils.state_manager._state_logger", None)
+def test_node():
+    """Test with no state logger."""
+    pass
+```
+
+Or use the fixture:
+```python
+def test_node(mock_state_logger):
+    """Test with mocked state logger."""
+    pass
+```
+
+### Async test issues
+
+**Problem**: Async tests not running or hanging
+
+**Solution**: 
+1. Install `pytest-asyncio`: `pip install pytest-asyncio`
+2. Use `@pytest.mark.asyncio` decorator:
+```python
+@pytest.mark.asyncio
+async def test_async_function():
+    result = await async_function()
+    assert result is not None
+```
+
+### Coverage not including files
+
+**Problem**: Coverage report missing files
+
+**Solution**: 
+1. Check `.coveragerc` or coverage configuration
+2. Verify files are not excluded
+3. Use `--cov=polyplexity_agent` to specify package name
+4. Check that files are imported during test execution
+
+### Tests hanging or timing out
+
+**Problem**: Tests hang indefinitely
+
+**Solution**:
+1. Check for unmocked external calls (LLM, APIs, database)
+2. Verify mocks are set up correctly
+3. Use `pytest --timeout=10` to set timeout
+4. Check for infinite loops in code
+
+### State not updating correctly
+
+**Problem**: State updates not working as expected
+
+**Solution**:
+1. Verify state TypedDict definition includes the field
+2. Check that field uses correct reducer (if accumulating)
+3. Verify node returns state updates correctly
+4. Check that state updates are merged correctly by LangGraph
+
+## Additional Resources
+
+- **Comprehensive Testing Guide**: See `polyplexity_agent/docs/TESTING.md` for detailed testing patterns and examples
+- **Development Guide**: See `polyplexity_agent/docs/DEVELOPMENT.md` for templates and patterns
+- **Coding Style**: See `docs/CODING_STYLE.md` for code style guidelines
