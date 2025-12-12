@@ -308,6 +308,9 @@ except Exception as e:
 | `researcher_thinking` | custom | generate_queries | `{"topic": str}` | When researcher starts thinking |
 | `generated_queries` | custom | generate_queries | `{"queries": List[str]}` | When search queries are generated |
 | `generated_market_queries` | custom | generate_market_queries | `{"queries": List[str]}` | When market queries are generated |
+| `tag_selected` | custom | generate_market_queries | `{"tags": List[{"id": str, "name": str}]}` | After all tags are selected from batches |
+| `market_approved` | custom | evaluate_markets | `{"slug": str, "clobTokenIds": List[str], "question": str, "description": str, "rules": str}` | As each market is approved/evaluated |
+| `market_research_complete` | custom | evaluate_markets | `{"reasoning": str}` | When market research completes (markets already streamed incrementally) |
 | `search_start` | custom | perform_search | `{"query": str}` | When a search query starts |
 | `web_search_url` | custom | perform_search | `{"url": str, "markdown": str}` | When a search result URL is found |
 | `research_synthesis_done` | custom | synthesize_research | `{"summary": str}` | When research synthesis completes |

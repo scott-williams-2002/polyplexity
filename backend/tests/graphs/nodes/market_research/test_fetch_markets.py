@@ -24,90 +24,67 @@ def sample_state():
 
 @pytest.fixture
 def mock_polymarket_results():
-    """Create mock Polymarket search results."""
+    """Create mock Polymarket event results."""
     return [
         {
-            "title": "2024 Presidential Election",
             "slug": "2024-presidential-election",
-            "description": "Who will win the 2024 US presidential election?",
-            "markets": [],
+            "question": "Who will win the 2024 US presidential election?",
+            "description": "Election market",
+            "clobTokenIds": ["token1"],
         },
         {
-            "title": "Election Predictions",
             "slug": "election-predictions",
-            "description": "Predictions for the 2024 election",
-            "markets": [],
+            "question": "What are the election predictions?",
+            "description": "Predictions market",
+            "clobTokenIds": ["token2"],
         },
         {
-            "title": "2024 Presidential Election",  # Duplicate slug
-            "slug": "2024-presidential-election",
-            "description": "Duplicate event",
-            "markets": [],
+            "slug": "2024-presidential-election",  # Duplicate slug
+            "question": "Duplicate market",
+            "description": "Duplicate",
+            "clobTokenIds": ["token3"],
         },
     ]
 
 
-@patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.stream_trace_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.search_markets")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.create_trace_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.log_node_state")
+@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.fetch_events_by_tag_id")
 def test_fetch_markets_node(
-    mock_log_node_state,
-    mock_create_trace_event,
-    mock_search_markets,
-    mock_stream_trace_event,
-    mock_state_logger,
+    mock_fetch_events_by_tag_id,
     sample_state,
     mock_polymarket_results,
 ):
     """Test fetch_markets_node fetches and deduplicates markets successfully."""
     
-    # Mock search_markets to return results for each query
-    mock_search_markets.side_effect = [
-        mock_polymarket_results[:2],  # First query returns 2 events
-        mock_polymarket_results[1:],  # Second query returns 2 events (1 duplicate)
+    # Mock fetch_events_by_tag_id to return results for each tag ID
+    mock_fetch_events_by_tag_id.side_effect = [
+        [{"markets": mock_polymarket_results[:2]}],  # First tag returns 2 markets
+        [{"markets": mock_polymarket_results[1:]}],  # Second tag returns 2 markets (1 duplicate)
     ]
-    
-    mock_create_trace_event.return_value = {"event": "trace", "type": "node_call"}
     
     result = fetch_markets_node(sample_state)
     
     assert "raw_events" in result
-    assert len(result["raw_events"]) == 2  # Should deduplicate to 2 unique events
+    assert len(result["raw_events"]) == 2  # Should deduplicate to 2 unique markets
     assert "reasoning_trace" in result
-    assert "execution_trace" in result
+    assert "execution_trace" not in result  # Removed in new implementation
     
     # Verify deduplication worked
-    slugs = [event["slug"] for event in result["raw_events"]]
+    slugs = [market["slug"] for market in result["raw_events"]]
     assert len(slugs) == len(set(slugs))  # All slugs should be unique
     
-    # Verify search_markets was called for each query
-    assert mock_search_markets.call_count == 2
-    
-    # Verify log_node_state was called
-    assert mock_log_node_state.call_count == 2  # BEFORE and AFTER
+    # Verify fetch_events_by_tag_id was called for each tag ID
+    assert mock_fetch_events_by_tag_id.call_count == 2
 
 
-@patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.stream_trace_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.search_markets")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.create_trace_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.log_node_state")
+@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.fetch_events_by_tag_id")
 def test_fetch_markets_node_empty_results(
-    mock_log_node_state,
-    mock_create_trace_event,
-    mock_search_markets,
-    mock_stream_trace_event,
-    mock_state_logger,
+    mock_fetch_events_by_tag_id,
     sample_state,
 ):
     """Test fetch_markets_node handles empty results."""
     
-    # Mock search_markets to return empty results
-    mock_search_markets.return_value = []
-    
-    mock_create_trace_event.return_value = {"event": "trace", "type": "node_call"}
+    # Mock fetch_events_by_tag_id to return empty results
+    mock_fetch_events_by_tag_id.return_value = []
     
     result = fetch_markets_node(sample_state)
     
@@ -116,22 +93,16 @@ def test_fetch_markets_node_empty_results(
     assert "reasoning_trace" in result
 
 
-@patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
 @patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.stream_custom_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.search_markets")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.create_trace_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.log_node_state")
+@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.fetch_events_by_tag_id")
 def test_fetch_markets_node_error_handling(
-    mock_log_node_state,
-    mock_create_trace_event,
-    mock_search_markets,
+    mock_fetch_events_by_tag_id,
     mock_stream_custom_event,
-    mock_state_logger,
     sample_state,
 ):
     """Test fetch_markets_node error handling."""
-    # Mock search_markets to raise an exception
-    mock_search_markets.side_effect = Exception("API error")
+    # Mock fetch_events_by_tag_id to raise an exception
+    mock_fetch_events_by_tag_id.side_effect = Exception("API error")
     
     with pytest.raises(Exception) as exc_info:
         fetch_markets_node(sample_state)
@@ -144,41 +115,31 @@ def test_fetch_markets_node_error_handling(
     assert call_args[0][1] == "fetch_markets"  # node
 
 
-@patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.stream_trace_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.search_markets")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.create_trace_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.log_node_state")
+@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.fetch_events_by_tag_id")
 def test_fetch_markets_node_multiple_queries(
-    mock_log_node_state,
-    mock_create_trace_event,
-    mock_search_markets,
-    mock_stream_trace_event,
-    mock_state_logger,
+    mock_fetch_events_by_tag_id,
     mock_polymarket_results,
 ):
-    """Test fetch_markets_node with multiple queries."""
+    """Test fetch_markets_node with multiple tag IDs."""
     
     state = {
         "original_topic": "test topic",
-        "market_queries": ["query1", "query2", "query3"],
+        "market_queries": ["tag1", "tag2", "tag3"],
         "raw_events": [],
         "candidate_markets": [],
         "approved_markets": [],
         "reasoning_trace": [],
     }
     
-    # Mock search_markets to return different results for each query
-    mock_search_markets.side_effect = [
-        [mock_polymarket_results[0]],
-        [mock_polymarket_results[1]],
-        [mock_polymarket_results[0]],  # Duplicate
+    # Mock fetch_events_by_tag_id to return different results for each tag ID
+    mock_fetch_events_by_tag_id.side_effect = [
+        [{"markets": [mock_polymarket_results[0]]}],
+        [{"markets": [mock_polymarket_results[1]]}],
+        [{"markets": [mock_polymarket_results[0]]}],  # Duplicate
     ]
-    
-    mock_create_trace_event.return_value = {"event": "trace", "type": "node_call"}
     
     result = fetch_markets_node(state)
     
-    # Should have 2 unique events (duplicate removed)
+    # Should have 2 unique markets (duplicate removed)
     assert len(result["raw_events"]) == 2
-    assert mock_search_markets.call_count == 3
+    assert mock_fetch_events_by_tag_id.call_count == 3

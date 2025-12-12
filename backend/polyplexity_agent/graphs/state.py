@@ -37,18 +37,24 @@ class MarketResearchState(TypedDict, total=False):
 
     Fields:
         original_topic: The user's original research topic
-        market_queries: Keywords generated for Polymarket search
+        ai_response: Optional AI-generated report/response providing context for tag selection
+        market_queries: Tag IDs or keywords generated for Polymarket search
         raw_events: Unprocessed event data from API
         candidate_markets: Processed and filtered markets for LLM ranking
         approved_markets: Final list of markets approved by evaluation
         reasoning_trace: Accumulated reasoning steps from the subgraph
+        tangential_iteration: Current retry attempt count (0-3)
+        previous_queries: Previously attempted queries for context
     """
     original_topic: str
+    ai_response: Optional[str]
     market_queries: List[str]
     raw_events: List[Dict]
     candidate_markets: List[Dict]
     approved_markets: List[Dict]
     reasoning_trace: Annotated[List[str], operator.add]
+    tangential_iteration: int
+    previous_queries: List[str]
 
 
 class SupervisorState(TypedDict, total=False):

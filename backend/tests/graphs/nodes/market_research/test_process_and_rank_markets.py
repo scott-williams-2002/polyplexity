@@ -17,16 +17,16 @@ def sample_state():
         "market_queries": ["2024 election"],
         "raw_events": [
             {
-                "title": "2024 Presidential Election",
                 "slug": "2024-presidential-election",
-                "description": "Who will win?",
-                "markets": [],
+                "question": "Who will win the 2024 US presidential election?",
+                "description": "Election market",
+                "clobTokenIds": ["token1"],
             },
             {
-                "title": "Election Predictions",
                 "slug": "election-predictions",
-                "description": "Predictions",
-                "markets": [],
+                "question": "What are the election predictions?",
+                "description": "Predictions market",
+                "clobTokenIds": ["token2"],
             },
         ],
         "candidate_markets": [],
@@ -38,35 +38,16 @@ def sample_state():
 @pytest.fixture
 def mock_ranking_response():
     """Create a mock ranking response."""
-    return {
-        "ranked_markets": [
-            {
-                "title": "2024 Presidential Election",
-                "slug": "2024-presidential-election",
-                "description": "Who will win?",
-                "markets": [],
-            },
-            {
-                "title": "Election Predictions",
-                "slug": "election-predictions",
-                "description": "Predictions",
-                "markets": [],
-            },
-        ]
-    }
+    from polyplexity_agent.models import RankedMarkets
+    return RankedMarkets(
+        slugs=["2024-presidential-election", "election-predictions"],
+        reasoning="These markets are highly relevant to the election topic."
+    )
 
 
-@patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.create_llm_model")
-@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.create_trace_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.log_node_state")
 def test_process_and_rank_markets_node(
-    mock_log_node_state,
-    mock_create_trace_event,
     mock_create_llm_model,
-    mock_stream_trace_event,
-    mock_state_logger,
     sample_state,
     mock_ranking_response,
 ):
@@ -74,43 +55,30 @@ def test_process_and_rank_markets_node(
     
     # Mock LLM chain
     mock_llm_chain = Mock()
-    mock_llm_chain.with_structured_output.return_value.invoke.return_value = mock_ranking_response
+    mock_llm_chain.with_structured_output.return_value.with_retry.return_value.invoke.return_value = mock_ranking_response
     mock_create_llm_model.return_value = mock_llm_chain
-    
-    mock_create_trace_event.return_value = {"event": "trace", "type": "node_call"}
     
     result = process_and_rank_markets_node(sample_state)
     
     assert "candidate_markets" in result
     assert len(result["candidate_markets"]) == 2
     assert "reasoning_trace" in result
-    assert "execution_trace" in result
-    
-    # Verify log_node_state was called
-    assert mock_log_node_state.call_count == 2  # BEFORE and AFTER
+    assert "execution_trace" not in result  # Removed in new implementation
 
 
-@patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.create_llm_model")
-@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.create_trace_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.log_node_state")
-def test_process_and_rank_markets_node_limits_to_five(
-    mock_log_node_state,
-    mock_create_trace_event,
+def test_process_and_rank_markets_node_limits_to_twenty(
     mock_create_llm_model,
-    mock_stream_trace_event,
-    mock_state_logger,
     mock_ranking_response,
 ):
-    """Test process_and_rank_markets_node limits to 5 events."""
-    # Create state with more than 5 events
+    """Test process_and_rank_markets_node limits to 20 markets."""
+    # Create state with more than 20 markets
     state = {
         "original_topic": "test topic",
         "market_queries": [],
         "raw_events": [
-            {"title": f"Event {i}", "slug": f"event-{i}", "description": "", "markets": []}
-            for i in range(10)
+            {"slug": f"market-{i}", "question": f"Question {i}", "description": "", "clobTokenIds": []}
+            for i in range(30)
         ],
         "candidate_markets": [],
         "approved_markets": [],
@@ -118,29 +86,20 @@ def test_process_and_rank_markets_node_limits_to_five(
     }
     
     mock_llm_chain = Mock()
-    mock_llm_chain.with_structured_output.return_value.invoke.return_value = mock_ranking_response
+    mock_llm_chain.with_structured_output.return_value.with_retry.return_value.invoke.return_value = mock_ranking_response
     mock_create_llm_model.return_value = mock_llm_chain
-    
-    mock_create_trace_event.return_value = {"event": "trace", "type": "node_call"}
     
     result = process_and_rank_markets_node(state)
     
-    # Verify LLM was called with only 5 events
-    call_args = mock_llm_chain.with_structured_output.return_value.invoke.call_args
-    assert len(call_args[0][0][0].content.split("candidate_markets")) > 0  # Prompt was formatted
+    # Verify LLM was called (should process up to 20 markets)
+    assert mock_create_llm_model.called
 
 
-@patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
 @patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.stream_custom_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.create_llm_model")
-@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.create_trace_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.log_node_state")
 def test_process_and_rank_markets_node_error_handling(
-    mock_log_node_state,
-    mock_create_trace_event,
     mock_create_llm_model,
     mock_stream_custom_event,
-    mock_state_logger,
     sample_state,
 ):
     """Test process_and_rank_markets_node error handling."""

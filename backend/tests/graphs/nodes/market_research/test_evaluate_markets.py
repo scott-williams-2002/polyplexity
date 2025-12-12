@@ -18,16 +18,16 @@ def sample_state():
         "raw_events": [],
         "candidate_markets": [
             {
-                "title": "2024 Presidential Election",
                 "slug": "2024-presidential-election",
-                "description": "Who will win?",
-                "markets": [],
+                "question": "Who will win the 2024 US presidential election?",
+                "description": "This market resolves based on the official election results.",
+                "clobTokenIds": ["token1", "token2"],
             },
             {
-                "title": "Election Predictions",
                 "slug": "election-predictions",
-                "description": "Predictions",
-                "markets": [],
+                "question": "What are the election predictions?",
+                "description": "Predictions for the election",
+                "clobTokenIds": ["token3"],
             },
         ],
         "approved_markets": [],
@@ -38,39 +38,28 @@ def sample_state():
 @pytest.fixture
 def mock_approve_response():
     """Create a mock approve evaluation response."""
-    return {
-        "decision": "APPROVE",
-        "markets": [
-            {
-                "title": "2024 Presidential Election",
-                "slug": "2024-presidential-election",
-                "description": "Who will win?",
-                "markets": [],
-            },
-        ],
-    }
+    from polyplexity_agent.models import ApprovedMarkets
+    return ApprovedMarkets(
+        slugs=["2024-presidential-election"],
+        reasoning="This market is highly relevant to the 2024 US presidential election topic."
+    )
 
 
 @pytest.fixture
 def mock_reject_response():
     """Create a mock reject evaluation response."""
-    return {
-        "decision": "REJECT",
-        "markets": [],
-    }
+    from polyplexity_agent.models import ApprovedMarkets
+    return ApprovedMarkets(
+        slugs=[],
+        reasoning="No markets meet the quality standards."
+    )
 
 
-@patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.stream_trace_event")
+@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.stream_custom_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.create_llm_model")
-@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.create_trace_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.log_node_state")
 def test_evaluate_markets_node_approve(
-    mock_log_node_state,
-    mock_create_trace_event,
     mock_create_llm_model,
-    mock_stream_trace_event,
-    mock_state_logger,
+    mock_stream_custom_event,
     sample_state,
     mock_approve_response,
 ):
@@ -78,64 +67,60 @@ def test_evaluate_markets_node_approve(
     
     # Mock LLM chain
     mock_llm_chain = Mock()
-    mock_llm_chain.with_structured_output.return_value.invoke.return_value = mock_approve_response
+    mock_llm_chain.with_structured_output.return_value.with_retry.return_value.invoke.return_value = mock_approve_response
     mock_create_llm_model.return_value = mock_llm_chain
-    
-    mock_create_trace_event.return_value = {"event": "trace", "type": "node_call"}
     
     result = evaluate_markets_node(sample_state)
     
     assert "approved_markets" in result
     assert len(result["approved_markets"]) == 1
     assert "reasoning_trace" in result
-    assert "execution_trace" in result
-    assert "APPROVE" in result["reasoning_trace"][0]
+    assert "execution_trace" not in result  # Removed in new implementation
     
-    # Verify log_node_state was called
-    assert mock_log_node_state.call_count == 2  # BEFORE and AFTER
+    # Verify market_approved event was streamed
+    market_approved_calls = [call for call in mock_stream_custom_event.call_args_list 
+                            if call[0][0] == "market_approved"]
+    assert len(market_approved_calls) == 1
+    
+    # Verify market_research_complete event was streamed
+    complete_calls = [call for call in mock_stream_custom_event.call_args_list 
+                     if call[0][0] == "market_research_complete"]
+    assert len(complete_calls) == 1
+    assert "reasoning" in complete_calls[0][0][2]
 
 
-@patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.stream_trace_event")
+@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.stream_custom_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.create_llm_model")
-@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.create_trace_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.log_node_state")
 def test_evaluate_markets_node_reject(
-    mock_log_node_state,
-    mock_create_trace_event,
     mock_create_llm_model,
-    mock_stream_trace_event,
-    mock_state_logger,
+    mock_stream_custom_event,
     sample_state,
     mock_reject_response,
 ):
-    """Test evaluate_markets_node with REJECT decision."""
+    """Test evaluate_markets_node with REJECT decision (fallback markets)."""
     
     # Mock LLM chain
     mock_llm_chain = Mock()
-    mock_llm_chain.with_structured_output.return_value.invoke.return_value = mock_reject_response
+    mock_llm_chain.with_structured_output.return_value.with_retry.return_value.invoke.return_value = mock_reject_response
     mock_create_llm_model.return_value = mock_llm_chain
-    
-    mock_create_trace_event.return_value = {"event": "trace", "type": "node_call"}
     
     result = evaluate_markets_node(sample_state)
     
     assert "approved_markets" in result
-    assert len(result["approved_markets"]) == 0  # Should be empty on reject
-    assert "REJECT" in result["reasoning_trace"][0]
+    # Fallback logic should use top markets if LLM returns empty
+    assert len(result["approved_markets"]) > 0  # Fallback markets should be used
+    
+    # Verify fallback markets were streamed
+    market_approved_calls = [call for call in mock_stream_custom_event.call_args_list 
+                            if call[0][0] == "market_approved"]
+    assert len(market_approved_calls) > 0  # Fallback markets should be streamed
 
 
-@patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
 @patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.stream_custom_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.create_llm_model")
-@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.create_trace_event")
-@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.log_node_state")
 def test_evaluate_markets_node_error_handling(
-    mock_log_node_state,
-    mock_create_trace_event,
     mock_create_llm_model,
     mock_stream_custom_event,
-    mock_state_logger,
     sample_state,
 ):
     """Test evaluate_markets_node error handling."""
