@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { streamChat } from "../lib/api";
-import { SSEEvent, ExecutionTraceEvent, Source, StreamStage } from "../types";
+import { SSEEvent, ExecutionTraceEvent, Source, StreamStage, ApprovedMarket } from "../types";
 import { executionTraceToReasoning } from "../lib/adapters";
 
 interface UseChatStreamProps {
@@ -96,6 +96,10 @@ export function useChatStream({
   const [sources, setSources] = useState<Source[]>([]);
   const [stage, setStage] = useState<StreamStage>("idle");
   const [finalReportComplete, setFinalReportComplete] = useState(false);
+  const [approvedMarkets, setApprovedMarkets] = useState<ApprovedMarket[]>([]);
+  const [polymarketBlurb, setPolymarketBlurb] = useState<string | null>(null);
+  const approvedMarketsRef = useRef<ApprovedMarket[]>([]);
+  const polymarketBlurbRef = useRef<string | null>(null);
 
   const handleEvent = useCallback((event: SSEEvent) => {
     console.log('[useChatStream] Handling event:', event);
@@ -292,6 +296,16 @@ export function useChatStream({
 
     // Handle state_update events
     if (eventType === "state_update") {
+      // Handle approved_markets from call_market_research node
+      if (eventNode === "call_market_research" && payload.approved_markets && Array.isArray(payload.approved_markets)) {
+        setApprovedMarkets(payload.approved_markets);
+        approvedMarketsRef.current = payload.approved_markets;
+      }
+      // Handle polymarket_blurb from rewrite_polymarket_response node
+      if (eventNode === "rewrite_polymarket_response" && payload.polymarket_blurb && typeof payload.polymarket_blurb === "string") {
+        setPolymarketBlurb(payload.polymarket_blurb);
+        polymarketBlurbRef.current = payload.polymarket_blurb;
+      }
       // Handle final_report updates
       if (payload.final_report !== undefined) {
         setCurrentStatus(null);
@@ -352,6 +366,10 @@ export function useChatStream({
     setSources([]);
     setStage("searching");
     setFinalReportComplete(false);
+    setApprovedMarkets([]);
+    setPolymarketBlurb(null);
+    approvedMarketsRef.current = [];
+    polymarketBlurbRef.current = null;
 
     try {
       await streamChat(message, currentThreadId, handleEvent);
@@ -371,6 +389,9 @@ export function useChatStream({
   }, [handleEvent, onMessageSent]);
 
   const reset = useCallback(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/5926f707-95e8-4111-b824-adadbab0a6a6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useChatStream.ts:373',message:'reset called',data:{approvedMarketsCount:approvedMarketsRef.current.length,hasPolymarketBlurb:!!polymarketBlurbRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     setIsStreaming(false);
     setStreamingContent("");
     setExecutionTrace([]);
@@ -378,6 +399,10 @@ export function useChatStream({
     setSources([]);
     setStage("idle");
     setFinalReportComplete(false);
+    setApprovedMarkets([]);
+    setPolymarketBlurb(null);
+    approvedMarketsRef.current = [];
+    polymarketBlurbRef.current = null;
   }, []);
 
   // Convert execution trace to reasoning string
@@ -398,6 +423,8 @@ export function useChatStream({
     sources,
     stage,
     finalReportComplete,
+    approvedMarkets,
+    polymarketBlurb,
     startStreaming,
     reset,
   };

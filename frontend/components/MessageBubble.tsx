@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Message } from '../types';
 import { SourcesGrid } from './SourcesGrid';
 import { ReasoningAccordion } from './ReasoningAccordion';
+import { MarketChartsContainer } from './MarketChartsContainer';
 import { cn } from '../lib/utils';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -162,6 +163,35 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
           </div>
         )}
       </div>
+
+      {/* Polymarket Blurb - Displayed above charts */}
+      {message.polymarketBlurb && (
+        <div className="mt-6 px-4 py-3 rounded-lg bg-muted/30 border border-border/50">
+          <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground">
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]}
+              components={{
+                p: ({ children }) => <p className="mb-2 last:mb-0 break-words">{children}</p>,
+                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                a: ({ href, children }) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline hover:text-primary/80 break-words">
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {message.polymarketBlurb}
+            </ReactMarkdown>
+          </div>
+        </div>
+      )}
+
+      {/* Market Charts Container - Rendered beneath AI response */}
+      {message.approvedMarkets && message.approvedMarkets.length > 0 && (
+        <div className="mt-6">
+          <MarketChartsContainer markets={message.approvedMarkets} />
+        </div>
+      )}
     </div>
   );
 };

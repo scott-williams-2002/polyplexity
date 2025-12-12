@@ -16,6 +16,8 @@ export interface Message {
   content: string; // The final answer or current stream
   reasoning?: string; // The "thought process" content
   sources?: ReferenceSource[];
+  approvedMarkets?: ApprovedMarket[]; // Market data from SSE events
+  polymarketBlurb?: string; // Polymarket blurb text from rewrite_polymarket_response
   timestamp: number;
   
   // State for UI only (not necessarily persisted)
@@ -101,4 +103,43 @@ export interface ApiMessage {
 export interface Source {
   url: string;
   markdown: string;
+}
+
+// Polymarket API Types
+export interface PricePoint {
+  t: number; // timestamp
+  p: number; // price
+}
+
+export interface PriceHistoryResponse {
+  history: PricePoint[];
+}
+
+// Component Prop Types
+export type Sentiment = 'bullish' | 'bearish' | 'neutral';
+
+export interface MarketContextBlurb {
+  id: string;
+  startTime: number;
+  endTime: number;
+  title: string;
+  description: string;
+  sentiment: Sentiment;
+}
+
+// Approved Market from SSE events
+export interface ApprovedMarket {
+  question: string;
+  slug: string;
+  clobTokenIds: string[];
+  description: string;
+  image: string;
+  conditionId: string;
+  liquidity: string;
+  volume: string;
+  outcomes: string[];
+  outcomePrices: string[];
+  eventTitle: string;
+  eventSlug: string;
+  eventImage: string;
 }

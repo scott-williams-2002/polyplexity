@@ -22,6 +22,8 @@ export default function App() {
     sources,
     stage,
     finalReportComplete,
+    approvedMarkets,
+    polymarketBlurb,
     startStreaming,
     reset: resetStream,
   } = useChatStream({
@@ -51,9 +53,15 @@ export default function App() {
       const loadHistory = async () => {
         try {
           const history = await getThreadHistory(threadId);
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/5926f707-95e8-4111-b824-adadbab0a6a6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:54',message:'loading thread history',data:{historyLength:history.length,firstMsgHasTrace:!!history[0]?.execution_trace,firstMsgTraceLength:history[0]?.execution_trace?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          // #endregion
           const formattedMessages: Message[] = history.map((msg, index) =>
             apiMessageToViteMessage(msg, `history-${threadId}-${index}`)
           );
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/5926f707-95e8-4111-b824-adadbab0a6a6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:59',message:'formatted messages',data:{formattedLength:formattedMessages.length,firstMsgHasApprovedMarkets:!!formattedMessages[0]?.approvedMarkets,firstMsgApprovedMarketsCount:formattedMessages[0]?.approvedMarkets?.length||0,firstMsgHasPolymarketBlurb:!!formattedMessages[0]?.polymarketBlurb},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          // #endregion
           setMessages(formattedMessages);
           loadedThreadIdRef.current = threadId;
         } catch (error) {
@@ -113,6 +121,8 @@ export default function App() {
               content: streamingContent || updated[i].content,
               reasoning: reasoning || undefined, // Always update, even if empty, to show incremental updates
               sources: uniqueSources.length > 0 ? uniqueSources : updated[i].sources,
+              approvedMarkets: approvedMarkets.length > 0 ? approvedMarkets : updated[i].approvedMarkets,
+              polymarketBlurb: polymarketBlurb || updated[i].polymarketBlurb,
               stage: stage || updated[i].stage || "searching",
               isStreaming: true,
               finalReportComplete: finalReportComplete || updated[i].finalReportComplete || false,
@@ -139,6 +149,8 @@ export default function App() {
             content: streamingContent || "",
             reasoning: reasoning || undefined,
             sources: uniqueSources,
+            approvedMarkets: approvedMarkets.length > 0 ? approvedMarkets : undefined,
+            polymarketBlurb: polymarketBlurb || undefined,
             timestamp: Date.now(),
             stage: stage || "searching",
             isStreaming: true,
@@ -149,6 +161,9 @@ export default function App() {
         return updated;
       });
     } else if (!isStreaming && streamingContent) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/5926f707-95e8-4111-b824-adadbab0a6a6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:157',message:'finalizing message',data:{approvedMarketsCount:approvedMarkets.length,hasPolymarketBlurb:!!polymarketBlurb,polymarketBlurbLength:polymarketBlurb?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       // Finalize message when streaming completes
       setMessages((prev) => {
         const updated = [...prev];
@@ -178,11 +193,20 @@ export default function App() {
               index === self.findIndex(s => s.url === source.url)
             );
             
+            const finalApprovedMarkets = approvedMarkets.length > 0 ? approvedMarkets : updated[i].approvedMarkets;
+            const finalPolymarketBlurb = polymarketBlurb || updated[i].polymarketBlurb;
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/5926f707-95e8-4111-b824-adadbab0a6a6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:192',message:'setting final message data',data:{finalApprovedMarketsCount:finalApprovedMarkets?.length||0,hasFinalPolymarketBlurb:!!finalPolymarketBlurb,existingApprovedMarketsCount:updated[i].approvedMarkets?.length||0,hasExistingPolymarketBlurb:!!updated[i].polymarketBlurb},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
+            
             updated[i] = {
               ...updated[i],
               content: streamingContent || updated[i].content,
               reasoning: reasoning || undefined, // Always update reasoning
               sources: uniqueSources,
+              approvedMarkets: finalApprovedMarkets,
+              polymarketBlurb: finalPolymarketBlurb,
               stage: "completed",
               isStreaming: false,
               finalReportComplete: true,
@@ -190,11 +214,18 @@ export default function App() {
             break;
           }
         }
+        // #region agent log
+        const finalMsg = updated.find(m => m.role === "assistant" && !m.isStreaming);
+        fetch('http://127.0.0.1:7242/ingest/5926f707-95e8-4111-b824-adadbab0a6a6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:200',message:'after finalization',data:{finalApprovedMarketsCount:finalMsg?.approvedMarkets?.length||0,hasFinalPolymarketBlurb:!!finalMsg?.polymarketBlurb},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         return updated;
       });
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/5926f707-95e8-4111-b824-adadbab0a6a6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:203',message:'calling resetStream',data:{approvedMarketsCountBeforeReset:approvedMarkets.length,hasPolymarketBlurbBeforeReset:!!polymarketBlurb},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       resetStream();
     }
-  }, [isStreaming, streamingContent, reasoning, sources, stage, finalReportComplete, resetStream]);
+  }, [isStreaming, streamingContent, reasoning, sources, stage, finalReportComplete, approvedMarkets, polymarketBlurb, resetStream]);
 
   const handleSendMessage = useCallback(
     async (content: string) => {
