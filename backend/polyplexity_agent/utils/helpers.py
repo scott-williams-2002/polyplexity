@@ -84,7 +84,9 @@ def generate_thread_name(user_query: str) -> str:
         
         return name
     except Exception as e:
-        print(f"Warning: Failed to generate thread name: {e}")
+        from polyplexity_agent.logging import get_logger
+        logger = get_logger(__name__)
+        logger.warning("thread_name_generation_failed", error=str(e))
         words = user_query.split()[:5]
         name = " ".join(words)
         if len(name) > 50:
@@ -177,7 +179,9 @@ def save_messages_and_trace(
         
         return assistant_message_id
     except Exception as e:
-        print(f"Warning: Failed to save messages to table: {e}")
+        from polyplexity_agent.logging import get_logger
+        logger = get_logger(__name__)
+        logger.warning("save_messages_failed", error=str(e), exc_info=True)
         import traceback
         traceback.print_exc()
         return None
@@ -214,7 +218,9 @@ def ensure_trace_completeness(
         expected_count = len(expected_trace)
         
         if existing_count < expected_count:
-            print(f"[DEBUG] Trace incomplete ({existing_count} < {expected_count}), updating...")
+            from polyplexity_agent.logging import get_logger
+            logger = get_logger(__name__)
+            logger.debug("trace_incomplete", existing_count=existing_count, expected_count=expected_count)
             db_manager.delete_message_traces(str(assistant_message_id))
             
             for idx, trace_event in enumerate(expected_trace):
@@ -232,9 +238,11 @@ def ensure_trace_completeness(
                     event_index=idx
                 )
             
-            print(f"[DEBUG] Successfully updated trace with {len(expected_trace)} events")
+            logger.debug("trace_updated", event_count=len(expected_trace))
     except Exception as e:
-        print(f"Warning: Failed to ensure trace completeness: {e}")
+        from polyplexity_agent.logging import get_logger
+        logger = get_logger(__name__)
+        logger.warning("ensure_trace_completeness_failed", error=str(e), exc_info=True)
         import traceback
         traceback.print_exc()
 

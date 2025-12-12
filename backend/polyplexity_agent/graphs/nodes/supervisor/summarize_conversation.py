@@ -7,8 +7,11 @@ from typing import Any, Dict, List
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from polyplexity_agent.logging import get_logger
 from polyplexity_agent.prompts.system_prompts import SUMMARIZER_SYSTEM_PROMPT
 from polyplexity_agent.utils.helpers import create_llm_model
+
+logger = get_logger(__name__)
 
 
 def manage_chat_history(current: List[Dict], new: List[Dict]) -> List[Dict]:
@@ -78,5 +81,5 @@ def summarize_conversation_node(state: Dict[str, Any]) -> Dict[str, Any]:
             "conversation_history": [{"type": "reset"}],
         }
     except Exception as e:
-        print(f"Error in summarize_conversation_node: {e}")
+        logger.error("summarize_conversation_node_error", error=str(e), exc_info=True)
         raise e

@@ -7,9 +7,12 @@ from langchain_core.messages import HumanMessage
 
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.graphs.state import ResearcherState
+from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
 from polyplexity_agent.prompts.researcher import RESEARCH_SYNTHESIS_PROMPT_TEMPLATE
 from polyplexity_agent.utils.helpers import create_llm_model, format_date, log_node_state
+
+logger = get_logger(__name__)
 
 
 def _synthesize_research_llm(state: ResearcherState) -> str:
@@ -44,5 +47,5 @@ def synthesize_research_node(state: ResearcherState):
         return {"research_summary": summary, "execution_trace": [node_call_event, synthesis_event]}
     except Exception as e:
         stream_custom_event("error", "synthesize_research", {"error": str(e)})
-        print(f"Error in synthesize_research_node: {e}")
+        logger.error("synthesize_research_node_error", error=str(e), exc_info=True)
         raise

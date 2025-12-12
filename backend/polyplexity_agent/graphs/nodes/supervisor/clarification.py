@@ -7,8 +7,11 @@ from typing import Dict
 
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.graphs.state import SupervisorState
+from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
 from polyplexity_agent.utils.helpers import log_node_state, save_messages_and_trace
+
+logger = get_logger(__name__)
 
 
 def _handle_clarification(state: SupervisorState) -> Dict:
@@ -43,5 +46,5 @@ def clarification_node(state: SupervisorState):
         return result
     except Exception as e:
         stream_custom_event("error", "clarification", {"error": str(e)})
-        print(f"Error in clarification_node: {e}")
+        logger.error("clarification_node_error", error=str(e), exc_info=True)
         raise

@@ -8,6 +8,7 @@ from langchain_core.messages import HumanMessage
 from polyplexity_agent.config import Settings
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.graphs.state import SupervisorState
+from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
 from polyplexity_agent.prompts.response_generator import (
     FINAL_RESPONSE_PROMPT_TEMPLATE,
@@ -18,6 +19,7 @@ from polyplexity_agent.prompts.response_generator import (
 from polyplexity_agent.utils.helpers import create_llm_model, format_date, log_node_state, save_messages_and_trace
 
 settings = Settings()
+logger = get_logger(__name__)
 
 
 def _generate_final_report(state: SupervisorState) -> str:
@@ -78,5 +80,5 @@ def final_report_node(state: SupervisorState):
         return result
     except Exception as e:
         stream_custom_event("error", "final_report", {"error": str(e)})
-        print(f"Error in final_report_node: {e}")
+        logger.error("final_report_node_error", error=str(e), exc_info=True)
         raise

@@ -18,7 +18,10 @@ from polyplexity_agent.graphs.nodes.supervisor.final_report import final_report_
 from polyplexity_agent.graphs.nodes.supervisor.supervisor import supervisor_node
 from polyplexity_agent.graphs.nodes.supervisor.summarize_conversation import summarize_conversation_node
 from polyplexity_agent.graphs.state import SupervisorState
+from polyplexity_agent.logging import get_logger
 from polyplexity_agent.testing import draw_graph
+
+logger = get_logger(__name__)
 
 
 def route_supervisor(state: SupervisorState):
@@ -55,14 +58,14 @@ def _ensure_checkpointer_setup(checkpointer: Optional[Any]) -> Optional[Any]:
         try:
             if hasattr(checkpointer, "setup"):
                 checkpointer.setup()
-                print("✓ LangGraph checkpointer setup completed during graph compilation")
+                logger.info("checkpointer_setup_completed")
             else:
-                print("Warning: Checkpointer does not have setup method")
+                logger.warning("checkpointer_no_setup_method")
             return checkpointer
         except Exception as e:
-            print(f"Error: Failed to setup checkpointer: {e}")
+            logger.error("checkpointer_setup_failed", error=str(e), exc_info=True)
             traceback.print_exc()
-            print("Continuing without checkpointing...")
+            logger.info("continuing_without_checkpointing")
             return None
     return checkpointer
 

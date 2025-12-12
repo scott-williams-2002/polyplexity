@@ -11,12 +11,14 @@ from dotenv import load_dotenv
 
 from polyplexity_agent.config import Settings
 from polyplexity_agent.config.secrets import create_checkpointer
+from polyplexity_agent.logging import get_logger
 from polyplexity_agent.utils.state_logger import StateLogger
 
 load_dotenv()
 
 # Application settings
 settings = Settings()
+logger = get_logger(__name__)
 
 # Global logger instance
 _state_logger: Optional[StateLogger] = None
@@ -40,14 +42,14 @@ def ensure_checkpointer_setup():
         try:
             if hasattr(_checkpointer, "setup"):
                 _checkpointer.setup()
-                print("✓ LangGraph checkpointer setup completed during graph compilation")
+                logger.info("checkpointer_setup_completed")
             else:
-                print("Warning: Checkpointer does not have setup method")
+                logger.warning("checkpointer_no_setup_method")
             _checkpointer_setup_done = True
         except Exception as e:
-            print(f"Error: Failed to setup checkpointer: {e}")
+            logger.error("checkpointer_setup_failed", error=str(e), exc_info=True)
             traceback.print_exc()
-            print("Continuing without checkpointing...")
+            logger.info("continuing_without_checkpointing")
             _checkpointer = None
 
 

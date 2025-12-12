@@ -10,7 +10,11 @@ from typing import Optional
 from dotenv import load_dotenv
 from langgraph.checkpoint.postgres import PostgresSaver
 
+from polyplexity_agent.logging import get_logger
+
 load_dotenv()
+
+logger = get_logger(__name__)
 
 # Global variable to keep context manager alive (prevents connection from closing)
 _checkpointer_context = None
@@ -50,17 +54,13 @@ def create_checkpointer() -> Optional[PostgresSaver]:
         # We need to keep the context manager alive and enter it
         _checkpointer_context = PostgresSaver.from_conn_string(conn_string)
         checkpointer = _checkpointer_context.__enter__()
-        print(f"✓ PostgresSaver checkpointer created successfully")
-        print(f"  Checkpointer type: {type(checkpointer)}")
-        print(f"  Has setup method: {hasattr(checkpointer, 'setup')}")
+        logger.info("checkpointer_created", checkpointer_type=str(type(checkpointer)), has_setup=hasattr(checkpointer, "setup"))
         # Setup will be called separately to ensure it's only called once
         return checkpointer
     except Exception as e:
-        print(f"Warning: Failed to create PostgresSaver: {e}")
-        # Don't print full connection string (contains password)
-        print(f"Connection string format: postgresql://user:password@host:port/database")
-        print("Make sure your POSTGRES_CONNECTION_STRING is correctly formatted.")
-        print("Continuing without checkpointing...")
+        logger.warning("checkpointer_creation_failed", error=str(e))
+        logger.info("checkpointer_connection_format_hint", format="postgresql://user:password@host:port/database")
+        logger.info("continuing_without_checkpointing")
         _checkpointer_context = None
         return None
 

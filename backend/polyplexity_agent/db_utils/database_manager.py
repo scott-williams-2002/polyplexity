@@ -36,9 +36,11 @@ class DatabaseManager:
         elif conn_string.startswith("postgresql://") and "+psycopg" not in conn_string:
             conn_string = conn_string.replace("postgresql://", "postgresql+psycopg://", 1)
         
-        # Debug: print connection string format (without password)
+        # Debug: log connection string format (without password)
         if original_conn_string != conn_string:
-            print(f"Converted connection string from {original_conn_string.split('@')[0]}@... to {conn_string.split('@')[0]}@...")
+            from polyplexity_agent.logging import get_logger
+            logger = get_logger(__name__)
+            logger.debug("connection_string_converted", original_format=original_conn_string.split("@")[0], new_format=conn_string.split("@")[0])
         
         self.engine = create_engine(conn_string, pool_pre_ping=True)
         self.SessionLocal = sessionmaker(bind=self.engine, autocommit=False, autoflush=False)
@@ -63,10 +65,14 @@ class DatabaseManager:
         try:
             # Create all tables from ORM models (only creates if they don't exist)
             Base.metadata.create_all(self.engine)
-            print("✓ Database schema initialized successfully")
+            from polyplexity_agent.logging import get_logger
+            logger = get_logger(__name__)
+            logger.info("database_schema_initialized")
             return True
         except Exception as e:
-            print(f"Error initializing database schema: {e}")
+            from polyplexity_agent.logging import get_logger
+            logger = get_logger(__name__)
+            logger.error("database_schema_init_failed", error=str(e), exc_info=True)
             import traceback
             traceback.print_exc()
             return False
@@ -96,10 +102,14 @@ class DatabaseManager:
             
             # Create all tables from ORM models
             Base.metadata.create_all(self.engine)
-            print("✓ Database reset and schema created successfully")
+            from polyplexity_agent.logging import get_logger
+            logger = get_logger(__name__)
+            logger.info("database_reset_completed")
             return True
         except Exception as e:
-            print(f"Error resetting database: {e}")
+            from polyplexity_agent.logging import get_logger
+            logger = get_logger(__name__)
+            logger.error("database_reset_failed", error=str(e), exc_info=True)
             import traceback
             traceback.print_exc()
             return False

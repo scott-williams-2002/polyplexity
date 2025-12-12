@@ -8,6 +8,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from polyplexity_agent.config import Settings
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.graphs.state import ResearcherState
+from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
 from polyplexity_agent.models import SearchQueries
 from polyplexity_agent.prompts.researcher import (
@@ -18,6 +19,7 @@ from polyplexity_agent.utils.helpers import create_llm_model, format_date, log_n
 
 # Application settings
 settings = Settings()
+logger = get_logger(__name__)
 
 
 def _generate_queries_llm(state: ResearcherState) -> SearchQueries:
@@ -51,5 +53,5 @@ def generate_queries_node(state: ResearcherState):
         return {"queries": resp.queries, "execution_trace": [node_call_event, queries_event]}
     except Exception as e:
         stream_custom_event("error", "generate_queries", {"error": str(e)})
-        print(f"Error in generate_queries_node: {e}")
+        logger.error("generate_queries_node_error", error=str(e), exc_info=True)
         raise

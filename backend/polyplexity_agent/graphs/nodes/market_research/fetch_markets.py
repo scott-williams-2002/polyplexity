@@ -5,9 +5,12 @@ Fetches market data from Polymarket based on generated queries.
 """
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.graphs.state import MarketResearchState
+from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
 from polyplexity_agent.tools.polymarket import search_markets
 from polyplexity_agent.utils.helpers import log_node_state
+
+logger = get_logger(__name__)
 
 
 def fetch_markets_node(state: MarketResearchState):
@@ -38,5 +41,5 @@ def fetch_markets_node(state: MarketResearchState):
         return result
     except Exception as e:
         stream_custom_event("error", "fetch_markets", {"error": str(e)})
-        print(f"Error in fetch_markets_node: {e}")
+        logger.error("fetch_markets_node_error", error=str(e), exc_info=True)
         raise

@@ -8,8 +8,11 @@ from typing import Any, Dict
 from langchain_tavily import TavilySearch
 
 from polyplexity_agent.execution_trace import create_trace_event
+from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
 from polyplexity_agent.utils.helpers import format_search_url_markdown, log_node_state
+
+logger = get_logger(__name__)
 
 
 def _perform_search_tavily(query: str, max_results: int = 2) -> Dict[str, Any]:
@@ -63,7 +66,7 @@ def perform_search_node(state: dict):
             url = res.get('url', '')
             if url:
                 markdown = format_search_url_markdown(url)
-                print(f"[DEBUG] Emitting web_search_url from researcher node: {url}")
+                logger.debug("emitting_web_search_url", url=url)
                 stream_custom_event("web_search_url", "perform_search", {"url": url, "markdown": markdown})
         
         content = _format_search_results(results, query)
@@ -72,5 +75,5 @@ def perform_search_node(state: dict):
         return {"search_results": [content], "execution_trace": [node_call_event, search_start_event, search_results_event]}
     except Exception as e:
         stream_custom_event("error", "perform_search", {"error": str(e), "query": query})
-        print(f"Error in perform_search_node for query '{query}': {e}")
+        logger.error("perform_search_node_error", error=str(e), query=query, exc_info=True)
         raise

@@ -6,7 +6,11 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from polyplexity_agent.logging import get_logger
+
 from .database_manager import get_database_manager
+
+logger = get_logger(__name__)
 
 
 def _check_checkpoints_table_exists(session):
@@ -39,7 +43,7 @@ def _create_checkpoints_table(session):
             ON checkpoints(parent_checkpoint_id);
     """))
     session.commit()
-    print("[DEBUG] ✓ Created 'checkpoints' table manually")
+    logger.debug("checkpoints_table_created")
 
 
 def _verify_and_create_checkpoints_table():
@@ -49,11 +53,10 @@ def _verify_and_create_checkpoints_table():
     try:
         exists = _check_checkpoints_table_exists(session)
         if not exists:
-            print("[DEBUG] ⚠️⚠️⚠️ 'checkpoints' table does NOT exist!")
-            print("[DEBUG] Attempting to create checkpoints table manually...")
+            logger.debug("checkpoints_table_missing", message="Creating checkpoints table manually")
             _create_checkpoints_table(session)
         else:
-            print("[DEBUG] ✓ 'checkpoints' table exists in database")
+            logger.debug("checkpoints_table_exists")
     finally:
         session.close()
 
@@ -62,18 +65,18 @@ def _log_select_sql_info(checkpointer):
     """Log SELECT_SQL information for debugging."""
     if hasattr(checkpointer, 'SELECT_SQL'):
         select_sql = str(checkpointer.SELECT_SQL)
-        print(f"[DEBUG] SELECT_SQL (first 300 chars): {select_sql[:300]}")
+        logger.debug("checkpointer_select_sql", sql_preview=select_sql[:300])
         if 'checkpoints' in select_sql:
-            print("[DEBUG] ⚠️ Checkpointer SQL references 'checkpoints' table")
+            logger.debug("checkpointer_references_checkpoints_table")
         if 'checkpoint_blobs' in select_sql:
-            print("[DEBUG] Checkpointer SQL references 'checkpoint_blobs' table")
+            logger.debug("checkpointer_references_checkpoint_blobs_table")
 
 
 def _log_upsert_sql_info(checkpointer):
     """Log UPSERT_CHECKPOINTS_SQL information for debugging."""
     if hasattr(checkpointer, 'UPSERT_CHECKPOINTS_SQL'):
         upsert_sql = str(checkpointer.UPSERT_CHECKPOINTS_SQL)
-        print(f"[DEBUG] UPSERT_CHECKPOINTS_SQL (first 200 chars): {upsert_sql[:200]}")
+        logger.debug("checkpointer_upsert_sql", sql_preview=upsert_sql[:200])
 
 
 def _log_checkpointer_sql_info(checkpointer):
@@ -84,21 +87,19 @@ def _log_checkpointer_sql_info(checkpointer):
 
 def _log_checkpointer_debug_info(checkpointer):
     """Log checkpointer debug information."""
-    print(f"[DEBUG] _checkpointer is: {checkpointer}")
-    print(f"[DEBUG] Checkpointer type: {type(checkpointer)}")
-    print(f"[DEBUG] Has setup method: {hasattr(checkpointer, 'setup')}")
+    logger.debug("checkpointer_info", checkpointer=str(checkpointer), checkpointer_type=str(type(checkpointer)), has_setup=hasattr(checkpointer, 'setup'))
     methods = [m for m in dir(checkpointer) if not m.startswith('_')]
-    print(f"[DEBUG] Checkpointer methods: {methods}")
+    logger.debug("checkpointer_methods", methods=methods)
 
 
 def _run_checkpointer_setup(checkpointer):
     """Run checkpointer setup and verify tables."""
-    print("[DEBUG] Calling checkpointer.setup()...")
+    logger.debug("calling_checkpointer_setup")
     checkpointer.setup()
-    print("✓ LangGraph checkpointer tables initialized successfully")
+    logger.info("checkpointer_tables_initialized")
     
     if hasattr(checkpointer, 'MIGRATIONS'):
-        print(f"[DEBUG] Found {len(checkpointer.MIGRATIONS)} migrations")
+        logger.debug("checkpointer_migrations_found", migration_count=len(checkpointer.MIGRATIONS))
     
     _log_checkpointer_sql_info(checkpointer)
     _verify_and_create_checkpoints_table()
@@ -111,22 +112,22 @@ def setup_checkpointer(checkpointer: Optional[object]):
     Args:
         checkpointer: PostgresSaver checkpointer instance or None
     """
-    print(f"[DEBUG] setup_checkpointer called")
+    logger.debug("setup_checkpointer_called")
     
     if not checkpointer:
-        print("Warning: Checkpointer not available, skipping setup")
+        logger.warning("checkpointer_not_available")
         return
     
     _log_checkpointer_debug_info(checkpointer)
     
     if not hasattr(checkpointer, "setup"):
-        print("Warning: Checkpointer does not have setup method")
+        logger.warning("checkpointer_no_setup_method")
         return
     
     try:
         _run_checkpointer_setup(checkpointer)
     except Exception as e:
-        print(f"Error: Failed to setup LangGraph checkpointer: {e}")
+        logger.error("checkpointer_setup_failed", error=str(e), exc_info=True)
         traceback.print_exc()
         # Don't raise - allow startup to continue, but log the error
 

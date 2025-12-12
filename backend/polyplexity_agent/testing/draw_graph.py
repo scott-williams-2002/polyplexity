@@ -1,6 +1,10 @@
 from pathlib import Path
 from typing import Union
 
+from polyplexity_agent.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def draw_graph(graph, output_path: Union[str, Path] = "graph_visualization.png"):
     """
@@ -28,9 +32,9 @@ def draw_graph(graph, output_path: Union[str, Path] = "graph_visualization.png")
             f.write(png_bytes)
         
         absolute_path = output_path.absolute()
-        print(f"Graph visualization saved to: {absolute_path}")
+        logger.info("graph_visualization_saved", path=str(absolute_path))
         return absolute_path
     except Exception as e:
-        print(f"Error saving graph visualization: {e}")
+        logger.error("graph_visualization_save_failed", error=str(e), exc_info=True)
         raise
 

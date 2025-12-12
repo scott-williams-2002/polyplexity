@@ -10,6 +10,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from polyplexity_agent.config import Settings
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.graphs.state import SupervisorState
+from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
 from polyplexity_agent.models import SupervisorDecision
 from polyplexity_agent.prompts.supervisor import (
@@ -26,6 +27,7 @@ from polyplexity_agent.utils.helpers import (
 )
 
 settings = Settings()
+logger = get_logger(__name__)
 
 
 def _handle_thread_name_generation(state: SupervisorState):
@@ -43,7 +45,7 @@ def _handle_thread_name_generation(state: SupervisorState):
             db_manager.save_thread_name(thread_id, thread_name)
             stream_custom_event("thread_name", "supervisor", {"thread_id": thread_id, "name": thread_name})
         except Exception as e:
-            print(f"Warning: Failed to handle thread name generation: {e}")
+            logger.warning("thread_name_generation_failed", thread_id=thread_id, error=str(e))
 
 
 def _make_supervisor_decision(state: SupervisorState, iteration: int) -> SupervisorDecision:
@@ -90,9 +92,9 @@ def supervisor_node(state: SupervisorState):
     try:
         from polyplexity_agent.orchestrator import _state_logger
         history = state.get("conversation_history", [])
-        print(f"[DEBUG] Supervisor sees conversation history: {len(history)} messages")
+        logger.debug("supervisor_conversation_history", history_count=len(history))
         if history:
-            print(f"[DEBUG] Supervisor history sample: {str(history[-1])[:100]}...")
+            logger.debug("supervisor_history_sample", sample=str(history[-1])[:100])
         log_node_state(_state_logger, "supervisor", "MAIN_GRAPH", dict(state), "BEFORE", state.get("iterations", 0))
         iteration = state.get("iterations", 0)
         if iteration == 0:
@@ -124,5 +126,5 @@ def supervisor_node(state: SupervisorState):
         return result
     except Exception as e:
         stream_custom_event("error", "supervisor", {"error": str(e)})
-        print(f"Error in supervisor_node: {e}")
+        logger.error("supervisor_node_error", error=str(e), exc_info=True)
         raise

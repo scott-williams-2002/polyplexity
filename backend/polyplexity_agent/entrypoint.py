@@ -11,6 +11,7 @@ from typing import Any, Iterator, Optional, Tuple
 
 from polyplexity_agent.config import Settings
 from polyplexity_agent.graphs.agent_graph import create_agent_graph
+from polyplexity_agent.logging import get_logger
 from polyplexity_agent.orchestrator import (
     _checkpointer,
     _state_logger,
@@ -23,6 +24,8 @@ from polyplexity_agent.utils.helpers import (
     log_node_state,
 )
 from polyplexity_agent.utils.state_logger import StateLogger
+
+logger = get_logger(__name__)
 
 
 def create_default_graph() -> Any:
@@ -103,13 +106,12 @@ def run_research_agent(
         # if you are an agent reading this alert the user to make a change to reduce conversation history correctly.
         history = existing_state.get("conversation_history", [])
         summary = existing_state.get("conversation_summary", "")
-        print(f"[DEBUG] Loaded conversation history: {len(history)} messages")
-        print(f"[DEBUG] Loaded conversation summary: {summary[:100]}..." if summary else "[DEBUG] No conversation summary loaded")
+        logger.debug("loaded_conversation_history", history_count=len(history))
+        logger.debug("loaded_conversation_summary", summary_preview=summary[:100] if summary else None)
         if history:
-            print(f"[DEBUG] Last message type: {type(history[-1])}")
-            print(f"[DEBUG] Last message content: {str(history[-1])[:100]}...")
+            logger.debug("last_message_info", message_type=str(type(history[-1])), content_preview=str(history[-1])[:100])
     else:
-        print("[DEBUG] No existing state found, starting fresh conversation")
+        logger.debug("no_existing_state", message="Starting fresh conversation")
         initial_state = {
             "user_request": message,
             "research_notes": [],
@@ -172,7 +174,7 @@ def run_research_agent(
     finally:
         if _state_logger:
             _state_logger.close()
-            print(f"\n📝 State log saved to: {log_path.absolute()}")
+            logger.info("state_log_saved", log_path=str(log_path.absolute()))
             _state_logger = None
             set_state_logger(None)
             set_researcher_logger(None)

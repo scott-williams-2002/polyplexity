@@ -9,9 +9,12 @@ from langchain_core.messages import HumanMessage
 
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.graphs.state import SupervisorState
+from polyplexity_agent.logging import get_logger
 from polyplexity_agent.prompts.response_generator import DIRECT_ANSWER_PROMPT_TEMPLATE
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
 from polyplexity_agent.utils.helpers import create_llm_model, log_node_state, save_messages_and_trace
+
+logger = get_logger(__name__)
 
 
 def _handle_direct_answer(state: SupervisorState) -> Dict:
@@ -51,5 +54,5 @@ def direct_answer_node(state: SupervisorState):
         return result
     except Exception as e:
         stream_custom_event("error", "direct_answer", {"error": str(e)})
-        print(f"Error in direct_answer_node: {e}")
+        logger.error("direct_answer_node_error", error=str(e), exc_info=True)
         raise

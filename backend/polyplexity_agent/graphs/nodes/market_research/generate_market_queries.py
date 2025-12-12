@@ -9,12 +9,14 @@ from langchain_core.messages import HumanMessage
 from polyplexity_agent.config import Settings
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.graphs.state import MarketResearchState
+from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
 from polyplexity_agent.prompts.market_prompts import MARKET_QUERY_GENERATION_PROMPT
 from polyplexity_agent.utils.helpers import create_llm_model, log_node_state
 
 # Application settings
 settings = Settings()
+logger = get_logger(__name__)
 
 
 def _generate_market_queries_llm(original_topic: str) -> Dict[str, List[str]]:
@@ -47,5 +49,5 @@ def generate_market_queries_node(state: MarketResearchState):
         return result
     except Exception as e:
         stream_custom_event("error", "generate_market_queries", {"error": str(e)})
-        print(f"Error in generate_market_queries_node: {e}")
+        logger.error("generate_market_queries_node_error", error=str(e), exc_info=True)
         raise
