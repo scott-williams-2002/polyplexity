@@ -17,6 +17,7 @@ from polyplexity_agent.orchestrator import (
     set_state_logger,
 )
 from polyplexity_agent.graphs.subgraphs.researcher import set_state_logger as set_researcher_logger
+from polyplexity_agent.streaming import process_custom_events, process_update_events
 from polyplexity_agent.utils.helpers import (
     ensure_trace_completeness,
     log_node_state,
@@ -138,71 +139,33 @@ def run_research_agent(
             stream_mode=["custom", "updates"]
         ):
             if mode == "custom":
-                # Ensure data is iterable (list) for uniform processing
-                items = data if isinstance(data, list) else [data]
-                
-                for item in items:
-                    if not isinstance(item, dict):
-                        continue
-                        
-                    if item.get("event") == "trace":
-                        trace_event = {k: v for k, v in item.items() if k != "event"}
+                # Process custom events - they're already in envelope format from nodes
+                for event in process_custom_events(mode, data):
+                    # Extract trace event from envelope payload if it's a trace event
+                    if event.get("type") == "trace" and "payload" in event:
+                        trace_event = event["payload"]
                         question_execution_trace.append(trace_event)
-                        yield mode, {"event": "trace", **trace_event}
-                    else:
-                        # Raw event (e.g. web_search_url, supervisor_decision, writing_report)
-                        # 1. Yield raw event for frontend streaming
-                        yield mode, item
-                        
-                        # 2. Auto-trace: Wrap in trace event for history/DB persistence
-                        from polyplexity_agent.execution_trace import create_trace_event
-                        
-                        # Map event to node and trace type
-                        event_name = item.get("event")
-                        trace_type = "search" if event_name == "search_start" else "custom"
-                        
-                        node_map = {
-                            "supervisor_decision": "supervisor",
-                            "writing_report": "final_report",
-                            "web_search_url": "perform_search",
-                            "search_start": "perform_search",
-                            "generated_queries": "generate_queries",
-                            "research_synthesis_done": "synthesize_research"
-                        }
-                        node_name = node_map.get(event_name, "orchestrator")
-                        
-                        trace_event = create_trace_event(trace_type, node_name, item)
-                        question_execution_trace.append(trace_event)
+                    
+                    # Yield event for frontend streaming
+                    yield mode, event
             
-            if mode == "updates":
-                from polyplexity_agent.execution_trace import create_trace_event
+            elif mode == "updates":
+                # Process state updates - data is already a dict mapping node names to updates
+                # We need to yield it in the same format for SSE generator
                 for node_name, node_data in data.items():
                     if isinstance(node_data, dict):
+                        # Collect execution trace from final_report updates
                         if node_name == "final_report" and "execution_trace" in node_data:
                             final_report_trace_events = node_data.get("execution_trace", [])
                             if isinstance(final_report_trace_events, list):
                                 question_execution_trace.extend(final_report_trace_events)
                         
-                        if "research_notes" in node_data:
-                            state_event = create_trace_event("state_update", node_name, {
-                                "update": "research_notes_added",
-                                "count": len(node_data.get("research_notes", []))
-                            })
-                            question_execution_trace.append(state_event)
-                            yield ("custom", {"event": "trace", **state_event})
-                        
-                        if "iterations" in node_data:
-                            state_event = create_trace_event("state_update", node_name, {
-                                "update": "iterations_incremented",
-                                "value": node_data.get("iterations", 0)
-                            })
-                            question_execution_trace.append(state_event)
-                            yield ("custom", {"event": "trace", **state_event})
-                        
+                        # Log state updates if logger is available
                         if _state_logger:
                             log_node_state(_state_logger, f"{node_name}_UPDATE", "MAIN_GRAPH", dict(node_data), "STREAM_UPDATE", node_data.get("iterations"), f"State update from streaming after {node_name} node")
-            
-            yield mode, data
+                
+                # Yield updates in original format for SSE generator
+                yield mode, data
         
         if _checkpointer and thread_id:
             ensure_trace_completeness(thread_id, question_execution_trace)

@@ -6,11 +6,11 @@ Decides whether to research more, finish, or ask for clarification.
 from typing import Dict
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from langgraph.config import get_stream_writer
 
 from polyplexity_agent.config import Settings
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.graphs.state import SupervisorState
+from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
 from polyplexity_agent.models import SupervisorDecision
 from polyplexity_agent.prompts.supervisor import (
     SUPERVISOR_FOLLOW_UP_CONTEXT_TEMPLATE,
@@ -28,7 +28,7 @@ from polyplexity_agent.utils.helpers import (
 settings = Settings()
 
 
-def _handle_thread_name_generation(state: SupervisorState, writer):
+def _handle_thread_name_generation(state: SupervisorState):
     """Generate and save thread name on first iteration."""
     thread_id = state.get("_thread_id")
     user_request = state.get("user_request", "")
@@ -41,7 +41,7 @@ def _handle_thread_name_generation(state: SupervisorState, writer):
                 return
             thread_name = generate_thread_name(user_request)
             db_manager.save_thread_name(thread_id, thread_name)
-            writer({"event": "thread_name", "thread_id": thread_id, "name": thread_name})
+            stream_custom_event("thread_name", "supervisor", {"thread_id": thread_id, "name": thread_name})
         except Exception as e:
             print(f"Warning: Failed to handle thread name generation: {e}")
 
@@ -73,11 +73,15 @@ def _make_supervisor_decision(state: SupervisorState, iteration: int) -> Supervi
     return model.invoke([SystemMessage(content=system_msg), HumanMessage(content=user_msg)])
 
 
-def _emit_supervisor_trace_events(writer, decision: SupervisorDecision, node_call_event: Dict):
+def _emit_supervisor_trace_events(decision: SupervisorDecision, node_call_event: Dict):
     """Emit supervisor trace events."""
     reasoning_event = create_trace_event("reasoning", "supervisor", {"reasoning": decision.reasoning})
-    writer({"event": "trace", **reasoning_event})
-    writer({"event": "supervisor_decision", "decision": decision.next_step, "reasoning": decision.reasoning, "topic": decision.research_topic})
+    stream_trace_event("reasoning", "supervisor", {"reasoning": decision.reasoning})
+    stream_custom_event("supervisor_decision", "supervisor", {
+        "decision": decision.next_step,
+        "reasoning": decision.reasoning,
+        "topic": decision.research_topic
+    })
     return [node_call_event, reasoning_event]
 
 
@@ -90,22 +94,21 @@ def supervisor_node(state: SupervisorState):
         if history:
             print(f"[DEBUG] Supervisor history sample: {str(history[-1])[:100]}...")
         log_node_state(_state_logger, "supervisor", "MAIN_GRAPH", dict(state), "BEFORE", state.get("iterations", 0))
-        writer = get_stream_writer()
         iteration = state.get("iterations", 0)
         if iteration == 0:
-            _handle_thread_name_generation(state, writer)
+            _handle_thread_name_generation(state)
         if iteration >= 10:
             node_call_event = create_trace_event("node_call", "supervisor", {})
-            writer({"event": "trace", **node_call_event})
-            writer({"event": "supervisor_log", "message": "Max iterations reached. Forcing finish."})
+            stream_trace_event("node_call", "supervisor", {})
+            stream_custom_event("supervisor_log", "supervisor", {"message": "Max iterations reached. Forcing finish."})
             result = {"next_topic": "FINISH", "execution_trace": [node_call_event]}
             log_node_state(_state_logger, "supervisor", "MAIN_GRAPH", {**state, **result}, "AFTER", iteration, "Max iterations reached")
             return result
         node_call_event = create_trace_event("node_call", "supervisor", {})
-        writer({"event": "trace", **node_call_event})
+        stream_trace_event("node_call", "supervisor", {})
         decision = _make_supervisor_decision(state, iteration)
         ans_fmt = decision.answer_format if hasattr(decision, "answer_format") and decision.answer_format in ["concise", "report"] else "concise"
-        trace_events = _emit_supervisor_trace_events(writer, decision, node_call_event)
+        trace_events = _emit_supervisor_trace_events(decision, node_call_event)
         next_topic = decision.research_topic
         if decision.next_step == "clarify":
             next_topic = f"CLARIFY:{decision.reasoning}"
@@ -120,7 +123,6 @@ def supervisor_node(state: SupervisorState):
         log_node_state(_state_logger, "supervisor", "MAIN_GRAPH", {**state, **result}, "AFTER", iteration, f"Decision: {decision.next_step}, Iter: {iteration}, Format: {ans_fmt}")
         return result
     except Exception as e:
-        writer = get_stream_writer()
-        writer({"event": "error", "node": "supervisor", "error": str(e)})
+        stream_custom_event("error", "supervisor", {"error": str(e)})
         print(f"Error in supervisor_node: {e}")
         raise

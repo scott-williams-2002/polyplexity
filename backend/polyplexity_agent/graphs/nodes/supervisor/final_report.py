@@ -4,11 +4,11 @@ Final report node for the main agent graph.
 Writes the final answer/report based on accumulated research notes.
 """
 from langchain_core.messages import HumanMessage
-from langgraph.config import get_stream_writer
 
 from polyplexity_agent.config import Settings
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.graphs.state import SupervisorState
+from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
 from polyplexity_agent.prompts.response_generator import (
     FINAL_RESPONSE_PROMPT_TEMPLATE,
     FINAL_RESPONSE_REFINEMENT_PROMPT_TEMPLATE,
@@ -53,14 +53,13 @@ def final_report_node(state: SupervisorState):
     try:
         from polyplexity_agent.orchestrator import _state_logger
         log_node_state(_state_logger, "final_report", "MAIN_GRAPH", dict(state), "BEFORE", state.get("iterations", 0), f"Research notes count: {len(state.get('research_notes', []))}")
-        writer = get_stream_writer()
         node_call_event = create_trace_event("node_call", "final_report", {})
-        writer({"event": "trace", **node_call_event})
-        writer({"event": "writing_report"})
+        stream_trace_event("node_call", "final_report", {})
+        stream_custom_event("writing_report", "final_report", {})
         final_report = _generate_final_report(state)
         complete_event = create_trace_event("custom", "final_report", {"event": "final_report_complete", "report": final_report})
-        writer({"event": "trace", **complete_event})
-        writer({"event": "final_report_complete", "report": final_report})
+        stream_trace_event("custom", "final_report", {"event": "final_report_complete", "report": final_report})
+        stream_custom_event("final_report_complete", "final_report", {"report": final_report})
         current_question_trace = state.get("_question_execution_trace", [])
         full_execution_trace = current_question_trace + [node_call_event, complete_event]
         thread_id = state.get("_thread_id")
@@ -78,7 +77,6 @@ def final_report_node(state: SupervisorState):
         log_node_state(_state_logger, "final_report", "MAIN_GRAPH", {**state, **result}, "AFTER", state.get("iterations", 0), f"Final report length: {len(final_report)} chars")
         return result
     except Exception as e:
-        writer = get_stream_writer()
-        writer({"event": "error", "node": "final_report", "error": str(e)})
+        stream_custom_event("error", "final_report", {"error": str(e)})
         print(f"Error in final_report_node: {e}")
         raise

@@ -48,7 +48,7 @@ def mock_polymarket_results():
 
 
 @patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.search_markets")
 @patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.log_node_state")
@@ -56,14 +56,12 @@ def test_fetch_markets_node(
     mock_log_node_state,
     mock_create_trace_event,
     mock_search_markets,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
     mock_state_logger,
     sample_state,
     mock_polymarket_results,
 ):
     """Test fetch_markets_node fetches and deduplicates markets successfully."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     
     # Mock search_markets to return results for each query
     mock_search_markets.side_effect = [
@@ -92,7 +90,7 @@ def test_fetch_markets_node(
 
 
 @patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.search_markets")
 @patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.log_node_state")
@@ -100,13 +98,11 @@ def test_fetch_markets_node_empty_results(
     mock_log_node_state,
     mock_create_trace_event,
     mock_search_markets,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
     mock_state_logger,
     sample_state,
 ):
     """Test fetch_markets_node handles empty results."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     
     # Mock search_markets to return empty results
     mock_search_markets.return_value = []
@@ -121,7 +117,7 @@ def test_fetch_markets_node_empty_results(
 
 
 @patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.stream_custom_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.search_markets")
 @patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.log_node_state")
@@ -129,14 +125,11 @@ def test_fetch_markets_node_error_handling(
     mock_log_node_state,
     mock_create_trace_event,
     mock_search_markets,
-    mock_get_stream_writer,
+    mock_stream_custom_event,
     mock_state_logger,
     sample_state,
 ):
     """Test fetch_markets_node error handling."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
-    
     # Mock search_markets to raise an exception
     mock_search_markets.side_effect = Exception("API error")
     
@@ -144,12 +137,15 @@ def test_fetch_markets_node_error_handling(
         fetch_markets_node(sample_state)
     
     assert "API error" in str(exc_info.value)
-    # Verify error event was written
-    assert mock_writer.call_count >= 1
+    # Verify error event was streamed
+    mock_stream_custom_event.assert_called_once()
+    call_args = mock_stream_custom_event.call_args
+    assert call_args[0][0] == "error"  # event_name
+    assert call_args[0][1] == "fetch_markets"  # node
 
 
 @patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.search_markets")
 @patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.fetch_markets.log_node_state")
@@ -157,13 +153,11 @@ def test_fetch_markets_node_multiple_queries(
     mock_log_node_state,
     mock_create_trace_event,
     mock_search_markets,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
     mock_state_logger,
     mock_polymarket_results,
 ):
     """Test fetch_markets_node with multiple queries."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     
     state = {
         "original_topic": "test topic",

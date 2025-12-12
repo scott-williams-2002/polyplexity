@@ -184,9 +184,16 @@ def test_end_to_end_direct_answer_flow(
     events = list(run_research_agent("What is 2+2?", graph=mock_graph))
     
     # Verify direct answer was generated
+    # Events are now in envelope format: {"type": "...", "event": "...", "payload": {...}}
     report_events = [e for e in events if isinstance(e[1], dict) and e[1].get("event") == "final_report_complete"]
     assert len(report_events) > 0
-    assert "2+2=4" in report_events[0][1]["report"]
+    # Check payload for report content
+    event_data = report_events[0][1]
+    if "payload" in event_data:
+        assert "2+2=4" in event_data["payload"].get("report", "")
+    else:
+        # Fallback for old format (shouldn't happen but be safe)
+        assert "2+2=4" in event_data.get("report", "")
 
 
 @patch("polyplexity_agent.entrypoint._checkpointer", None)
@@ -234,9 +241,16 @@ def test_end_to_end_clarification_flow(
     events = list(run_research_agent("Tell me about the weather", graph=mock_graph))
     
     # Verify clarification was generated
+    # Events are now in envelope format: {"type": "...", "event": "...", "payload": {...}}
     report_events = [e for e in events if isinstance(e[1], dict) and e[1].get("event") == "final_report_complete"]
     assert len(report_events) > 0
-    assert "location" in report_events[0][1]["report"].lower()
+    # Check payload for report content
+    event_data = report_events[0][1]
+    if "payload" in event_data:
+        assert "location" in event_data["payload"].get("report", "").lower()
+    else:
+        # Fallback for old format (shouldn't happen but be safe)
+        assert "location" in event_data.get("report", "").lower()
 
 
 @patch("polyplexity_agent.entrypoint._checkpointer")

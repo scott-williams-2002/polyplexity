@@ -25,7 +25,8 @@ def sample_state():
 
 
 @patch("polyplexity_agent.graphs.subgraphs.researcher._state_logger")
-@patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.stream_custom_event")
+@patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.log_node_state")
@@ -33,13 +34,12 @@ def test_synthesize_research_node(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
+    mock_stream_custom_event,
     mock_state_logger,
     sample_state,
 ):
     """Test synthesize_research_node synthesizes search results."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     
     # Mock LLM response
     mock_response = Mock()
@@ -70,15 +70,17 @@ def test_synthesize_research_node(
     assert "artificial intelligence" in prompt_content.lower()
     assert "AI Overview" in prompt_content or "AI definition" in prompt_content
     
-    # Verify events were written
-    assert mock_writer.call_count >= 3  # trace events + research_synthesis_done
+    # Verify streaming functions were called
+    assert mock_stream_trace_event.call_count >= 2  # node_call and custom trace events
+    assert mock_stream_custom_event.call_count >= 1  # research_synthesis_done
     
     # Verify log_node_state was called
     assert mock_log_node_state.call_count == 2  # BEFORE and AFTER
 
 
 @patch("polyplexity_agent.graphs.subgraphs.researcher._state_logger")
-@patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.stream_custom_event")
+@patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.log_node_state")
@@ -86,12 +88,11 @@ def test_synthesize_research_node_multiple_results(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
+    mock_stream_custom_event,
     mock_state_logger,
 ):
     """Test synthesize_research_node with multiple search results."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     
     mock_response = Mock()
     mock_response.content = "Comprehensive summary of all research findings..."
@@ -131,19 +132,23 @@ def test_synthesize_research_node_multiple_results(
 
 
 @patch("polyplexity_agent.graphs.subgraphs.researcher._state_logger")
-@patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.get_stream_writer")
+@patch("polyplexity_agent.streaming.stream_writer.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.stream_custom_event")
+@patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.log_node_state")
 def test_synthesize_research_node_error_handling(
     mock_log_node_state,
     mock_create_llm_model,
+    mock_stream_trace_event,
+    mock_stream_custom_event,
     mock_get_stream_writer,
     mock_state_logger,
     sample_state,
 ):
     """Test synthesize_research_node handles errors gracefully."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
+    # Mock get_stream_writer to return None (no runtime context in tests)
+    mock_get_stream_writer.return_value = None
     
     # Mock LLM to raise an error
     mock_create_llm_model.side_effect = Exception("LLM API error")
@@ -151,13 +156,14 @@ def test_synthesize_research_node_error_handling(
     with pytest.raises(Exception, match="LLM API error"):
         synthesize_research_node(sample_state)
     
-    # Verify error event was written
-    error_calls = [call for call in mock_writer.call_args_list if "error" in str(call)]
-    assert len(error_calls) > 0
+    # Verify error event was streamed
+    error_calls = [call for call in mock_stream_custom_event.call_args_list if call[0][0] == "error"]
+    assert len(error_calls) >= 1
 
 
 @patch("polyplexity_agent.graphs.subgraphs.researcher._state_logger")
-@patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.stream_custom_event")
+@patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.researcher.synthesize_research.log_node_state")
@@ -165,12 +171,11 @@ def test_synthesize_research_node_empty_results(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
+    mock_stream_custom_event,
     mock_state_logger,
 ):
     """Test synthesize_research_node handles empty search results."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     
     mock_response = Mock()
     mock_response.content = "No results found."

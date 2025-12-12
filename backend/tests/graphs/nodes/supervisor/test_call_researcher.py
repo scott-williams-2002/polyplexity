@@ -22,7 +22,8 @@ def sample_state():
 
 
 @patch("polyplexity_agent.orchestrator._state_logger")
-@patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.stream_trace_event")
+@patch("langgraph.config.get_stream_writer")
 @patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.researcher_graph")
 @patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.log_node_state")
@@ -31,6 +32,7 @@ def test_call_researcher_node(
     mock_create_trace_event,
     mock_researcher_graph,
     mock_get_stream_writer,
+    mock_stream_trace_event,
     mock_state_logger,
     sample_state,
 ):
@@ -56,7 +58,8 @@ def test_call_researcher_node(
 
 
 @patch("polyplexity_agent.orchestrator._state_logger")
-@patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.stream_trace_event")
+@patch("langgraph.config.get_stream_writer")
 @patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.researcher_graph")
 @patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.log_node_state")
@@ -65,6 +68,7 @@ def test_call_researcher_node_url_deduplication(
     mock_create_trace_event,
     mock_researcher_graph,
     mock_get_stream_writer,
+    mock_stream_trace_event,
     mock_state_logger,
     sample_state,
 ):
@@ -88,7 +92,8 @@ def test_call_researcher_node_url_deduplication(
 
 
 @patch("polyplexity_agent.orchestrator._state_logger")
-@patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.stream_trace_event")
+@patch("langgraph.config.get_stream_writer")
 @patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.researcher_graph")
 @patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.log_node_state")
@@ -97,6 +102,7 @@ def test_call_researcher_node_breadth_concise(
     mock_create_trace_event,
     mock_researcher_graph,
     mock_get_stream_writer,
+    mock_stream_trace_event,
     mock_state_logger,
     sample_state,
 ):
@@ -116,7 +122,8 @@ def test_call_researcher_node_breadth_concise(
 
 
 @patch("polyplexity_agent.orchestrator._state_logger")
-@patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.stream_trace_event")
+@patch("langgraph.config.get_stream_writer")
 @patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.researcher_graph")
 @patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.log_node_state")
@@ -125,6 +132,7 @@ def test_call_researcher_node_breadth_report(
     mock_create_trace_event,
     mock_researcher_graph,
     mock_get_stream_writer,
+    mock_stream_trace_event,
     mock_state_logger,
     sample_state,
 ):

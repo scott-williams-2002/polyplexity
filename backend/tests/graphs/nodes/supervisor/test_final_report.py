@@ -23,7 +23,8 @@ def sample_state():
 
 
 @patch("polyplexity_agent.orchestrator._state_logger")
-@patch("polyplexity_agent.graphs.nodes.supervisor.final_report.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.supervisor.final_report.stream_custom_event")
+@patch("polyplexity_agent.graphs.nodes.supervisor.final_report.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.supervisor.final_report.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.supervisor.final_report.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.supervisor.final_report.save_messages_and_trace")
@@ -33,13 +34,12 @@ def test_final_report_node(
     mock_save_messages,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
+    mock_stream_custom_event,
     mock_state_logger,
     sample_state,
 ):
     """Test final_report_node generates report."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     mock_llm = Mock()
     mock_llm.invoke.return_value.content = "Final report on AI"
     mock_create_llm_model.return_value = mock_llm
@@ -54,11 +54,14 @@ def test_final_report_node(
     assert result["final_report"] == "Final report on AI"
     assert result["current_report_version"] == 1
     assert "conversation_history" in result
-    mock_writer.assert_called()
+    # Verify streaming functions were called
+    assert mock_stream_trace_event.call_count >= 2  # node_call and custom trace
+    assert mock_stream_custom_event.call_count >= 2  # writing_report and final_report_complete
 
 
 @patch("polyplexity_agent.orchestrator._state_logger")
-@patch("polyplexity_agent.graphs.nodes.supervisor.final_report.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.supervisor.final_report.stream_custom_event")
+@patch("polyplexity_agent.graphs.nodes.supervisor.final_report.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.supervisor.final_report.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.supervisor.final_report.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.supervisor.final_report.save_messages_and_trace")
@@ -68,13 +71,12 @@ def test_final_report_node_refinement(
     mock_save_messages,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
+    mock_stream_custom_event,
     mock_state_logger,
     sample_state,
 ):
     """Test final_report_node handles report refinement."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     mock_llm = Mock()
     mock_llm.invoke.return_value.content = "Refined report"
     mock_create_llm_model.return_value = mock_llm
@@ -93,7 +95,8 @@ def test_final_report_node_refinement(
 
 
 @patch("polyplexity_agent.orchestrator._state_logger")
-@patch("polyplexity_agent.graphs.nodes.supervisor.final_report.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.supervisor.final_report.stream_custom_event")
+@patch("polyplexity_agent.graphs.nodes.supervisor.final_report.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.supervisor.final_report.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.supervisor.final_report.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.supervisor.final_report.save_messages_and_trace")
@@ -103,13 +106,12 @@ def test_final_report_node_report_format(
     mock_save_messages,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
+    mock_stream_custom_event,
     mock_state_logger,
     sample_state,
 ):
     """Test final_report_node uses report format instructions."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     mock_llm = Mock()
     mock_llm.invoke.return_value.content = "Report"
     mock_create_llm_model.return_value = mock_llm

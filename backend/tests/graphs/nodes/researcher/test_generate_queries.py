@@ -30,7 +30,8 @@ def mock_search_queries():
 
 
 @patch("polyplexity_agent.graphs.subgraphs.researcher._state_logger")
-@patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.stream_custom_event")
+@patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.log_node_state")
@@ -38,14 +39,13 @@ def test_generate_queries_node(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
+    mock_stream_custom_event,
     mock_state_logger,
     sample_state,
     mock_search_queries,
 ):
     """Test generate_queries_node generates queries successfully."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     
     # Mock LLM chain
     mock_llm_chain = Mock()
@@ -65,15 +65,17 @@ def test_generate_queries_node(
     assert "execution_trace" in result
     assert len(result["execution_trace"]) == 2
     
-    # Verify writer was called for events
-    assert mock_writer.call_count >= 3  # researcher_thinking, trace events, generated_queries
+    # Verify streaming functions were called
+    assert mock_stream_custom_event.call_count >= 2  # researcher_thinking, generated_queries
+    assert mock_stream_trace_event.call_count >= 2  # node_call, custom trace
     
     # Verify log_node_state was called
     assert mock_log_node_state.call_count == 2  # BEFORE and AFTER
 
 
 @patch("polyplexity_agent.graphs.subgraphs.researcher._state_logger")
-@patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.stream_custom_event")
+@patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.log_node_state")
@@ -81,13 +83,12 @@ def test_generate_queries_node_different_topics(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
+    mock_stream_custom_event,
     mock_state_logger,
     mock_search_queries,
 ):
     """Test generate_queries_node with different topics."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     
     mock_llm_chain = Mock()
     mock_llm_chain.with_structured_output.return_value.with_retry.return_value.invoke.return_value = mock_search_queries
@@ -119,26 +120,28 @@ def test_generate_queries_node_different_topics(
 
 
 @patch("polyplexity_agent.graphs.subgraphs.researcher._state_logger")
-@patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.stream_custom_event")
 @patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.researcher.generate_queries.log_node_state")
 def test_generate_queries_node_error_handling(
     mock_log_node_state,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_custom_event,
     mock_state_logger,
     sample_state,
 ):
     """Test generate_queries_node handles errors gracefully."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
-    
     # Mock LLM to raise an error
     mock_create_llm_model.side_effect = Exception("LLM API error")
     
     with pytest.raises(Exception, match="LLM API error"):
         generate_queries_node(sample_state)
     
-    # Verify error event was written
-    error_calls = [call for call in mock_writer.call_args_list if "error" in str(call)]
-    assert len(error_calls) > 0
+    # Verify error event was streamed (may also have researcher_thinking call)
+    assert mock_stream_custom_event.call_count >= 1
+    # Check that error event was called
+    error_calls = [call for call in mock_stream_custom_event.call_args_list if call[0][0] == "error"]
+    assert len(error_calls) >= 1
+    # Verify error call details
+    error_call = error_calls[0]
+    assert error_call[0][1] == "generate_queries"  # node

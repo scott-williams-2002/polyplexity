@@ -61,7 +61,7 @@ def mock_reject_response():
 
 
 @patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.log_node_state")
@@ -69,14 +69,12 @@ def test_evaluate_markets_node_approve(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
     mock_state_logger,
     sample_state,
     mock_approve_response,
 ):
     """Test evaluate_markets_node with APPROVE decision."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     
     # Mock LLM chain
     mock_llm_chain = Mock()
@@ -98,7 +96,7 @@ def test_evaluate_markets_node_approve(
 
 
 @patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.log_node_state")
@@ -106,14 +104,12 @@ def test_evaluate_markets_node_reject(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
     mock_state_logger,
     sample_state,
     mock_reject_response,
 ):
     """Test evaluate_markets_node with REJECT decision."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     
     # Mock LLM chain
     mock_llm_chain = Mock()
@@ -130,7 +126,7 @@ def test_evaluate_markets_node_reject(
 
 
 @patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.stream_custom_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.evaluate_markets.log_node_state")
@@ -138,14 +134,11 @@ def test_evaluate_markets_node_error_handling(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_custom_event,
     mock_state_logger,
     sample_state,
 ):
     """Test evaluate_markets_node error handling."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
-    
     # Mock LLM to raise an exception
     mock_create_llm_model.side_effect = Exception("LLM error")
     
@@ -153,5 +146,8 @@ def test_evaluate_markets_node_error_handling(
         evaluate_markets_node(sample_state)
     
     assert "LLM error" in str(exc_info.value)
-    # Verify error event was written
-    assert mock_writer.call_count >= 1
+    # Verify error event was streamed
+    mock_stream_custom_event.assert_called_once()
+    call_args = mock_stream_custom_event.call_args
+    assert call_args[0][0] == "error"  # event_name
+    assert call_args[0][1] == "evaluate_markets"  # node

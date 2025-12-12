@@ -4,11 +4,11 @@ Generate queries node for the researcher subgraph.
 Breaks a research topic into distinct search queries using LLM.
 """
 from langchain_core.messages import HumanMessage, SystemMessage
-from langgraph.config import get_stream_writer
 
 from polyplexity_agent.config import Settings
 from polyplexity_agent.execution_trace import create_trace_event
 from polyplexity_agent.graphs.state import ResearcherState
+from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
 from polyplexity_agent.models import SearchQueries
 from polyplexity_agent.prompts.researcher import (
     QUERY_GENERATION_SYSTEM_PROMPT,
@@ -37,21 +37,19 @@ def generate_queries_node(state: ResearcherState):
         # Access state logger from researcher module temporarily (like Phase 4 pattern)
         from polyplexity_agent.graphs.subgraphs.researcher import _state_logger
         log_node_state(_state_logger, "generate_queries", "SUBGRAPH", dict(state), "BEFORE", additional_info=f"Topic: {state.get('topic', 'N/A')}")
-        writer = get_stream_writer()
-        writer({"event": "researcher_thinking", "topic": state['topic']})
+        stream_custom_event("researcher_thinking", "generate_queries", {"topic": state['topic']})
         
         resp = _generate_queries_llm(state)
         node_call_event = create_trace_event("node_call", "generate_queries", {})
         queries_event = create_trace_event("custom", "generate_queries", {"event": "generated_queries", "queries": resp.queries})
         
-        writer({"event": "trace", **node_call_event})
-        writer({"event": "trace", **queries_event})
-        writer({"event": "generated_queries", "queries": resp.queries})
+        stream_trace_event("node_call", "generate_queries", {})
+        stream_trace_event("custom", "generate_queries", {"event": "generated_queries", "queries": resp.queries})
+        stream_custom_event("generated_queries", "generate_queries", {"queries": resp.queries})
         
         log_node_state(_state_logger, "generate_queries", "SUBGRAPH", {**state, "queries": resp.queries}, "AFTER", additional_info=f"Generated {len(resp.queries)} queries")
         return {"queries": resp.queries, "execution_trace": [node_call_event, queries_event]}
     except Exception as e:
-        writer = get_stream_writer()
-        writer({"event": "error", "node": "generate_queries", "error": str(e)})
+        stream_custom_event("error", "generate_queries", {"error": str(e)})
         print(f"Error in generate_queries_node: {e}")
         raise

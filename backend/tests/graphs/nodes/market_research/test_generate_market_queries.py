@@ -29,7 +29,8 @@ def mock_queries_response():
 
 
 @patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.stream_custom_event")
+@patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.log_node_state")
@@ -37,14 +38,13 @@ def test_generate_market_queries_node(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
+    mock_stream_custom_event,
     mock_state_logger,
     sample_state,
     mock_queries_response,
 ):
     """Test generate_market_queries_node generates queries successfully."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     
     # Mock LLM chain
     mock_llm_chain = Mock()
@@ -65,15 +65,17 @@ def test_generate_market_queries_node(
     assert "execution_trace" in result
     assert len(result["execution_trace"]) == 2
     
-    # Verify writer was called for events
-    assert mock_writer.call_count >= 3  # trace events, generated_market_queries
+    # Verify streaming functions were called
+    assert mock_stream_trace_event.call_count >= 2  # node_call and custom trace events
+    assert mock_stream_custom_event.call_count >= 1  # generated_market_queries event
     
     # Verify log_node_state was called
     assert mock_log_node_state.call_count == 2  # BEFORE and AFTER
 
 
 @patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.stream_custom_event")
+@patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.log_node_state")
@@ -81,13 +83,12 @@ def test_generate_market_queries_node_different_topics(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
+    mock_stream_custom_event,
     mock_state_logger,
     mock_queries_response,
 ):
     """Test generate_market_queries_node with different topics."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     
     mock_llm_chain = Mock()
     mock_llm_chain.with_structured_output.return_value.invoke.return_value = mock_queries_response
@@ -112,7 +113,7 @@ def test_generate_market_queries_node_different_topics(
 
 
 @patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.stream_custom_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.generate_market_queries.log_node_state")
@@ -120,14 +121,11 @@ def test_generate_market_queries_node_error_handling(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_custom_event,
     mock_state_logger,
     sample_state,
 ):
     """Test generate_market_queries_node error handling."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
-    
     # Mock LLM to raise an exception
     mock_create_llm_model.side_effect = Exception("LLM error")
     
@@ -135,5 +133,8 @@ def test_generate_market_queries_node_error_handling(
         generate_market_queries_node(sample_state)
     
     assert "LLM error" in str(exc_info.value)
-    # Verify error event was written
-    assert mock_writer.call_count >= 1
+    # Verify error event was streamed
+    mock_stream_custom_event.assert_called_once()
+    call_args = mock_stream_custom_event.call_args
+    assert call_args[0][0] == "error"  # event_name
+    assert call_args[0][1] == "generate_market_queries"  # node

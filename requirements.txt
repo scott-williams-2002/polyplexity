@@ -1,0 +1,4 @@
+websocket-client>=1.6.0
+requests>=2.31.0
+langgraph-checkpoint-postgres>=2.0.0
+psycopg[binary,pool]>=3.0.0

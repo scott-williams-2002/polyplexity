@@ -57,7 +57,7 @@ def mock_ranking_response():
 
 
 @patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.log_node_state")
@@ -65,14 +65,12 @@ def test_process_and_rank_markets_node(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
     mock_state_logger,
     sample_state,
     mock_ranking_response,
 ):
     """Test process_and_rank_markets_node ranks markets successfully."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
     
     # Mock LLM chain
     mock_llm_chain = Mock()
@@ -93,7 +91,7 @@ def test_process_and_rank_markets_node(
 
 
 @patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.stream_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.log_node_state")
@@ -101,14 +99,11 @@ def test_process_and_rank_markets_node_limits_to_five(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_trace_event,
     mock_state_logger,
     mock_ranking_response,
 ):
     """Test process_and_rank_markets_node limits to 5 events."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
-    
     # Create state with more than 5 events
     state = {
         "original_topic": "test topic",
@@ -136,7 +131,7 @@ def test_process_and_rank_markets_node_limits_to_five(
 
 
 @patch("polyplexity_agent.graphs.subgraphs.market_research._state_logger")
-@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.get_stream_writer")
+@patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.stream_custom_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.create_llm_model")
 @patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.create_trace_event")
 @patch("polyplexity_agent.graphs.nodes.market_research.process_and_rank_markets.log_node_state")
@@ -144,14 +139,11 @@ def test_process_and_rank_markets_node_error_handling(
     mock_log_node_state,
     mock_create_trace_event,
     mock_create_llm_model,
-    mock_get_stream_writer,
+    mock_stream_custom_event,
     mock_state_logger,
     sample_state,
 ):
     """Test process_and_rank_markets_node error handling."""
-    mock_writer = Mock()
-    mock_get_stream_writer.return_value = mock_writer
-    
     # Mock LLM to raise an exception
     mock_create_llm_model.side_effect = Exception("LLM error")
     
@@ -159,5 +151,8 @@ def test_process_and_rank_markets_node_error_handling(
         process_and_rank_markets_node(sample_state)
     
     assert "LLM error" in str(exc_info.value)
-    # Verify error event was written
-    assert mock_writer.call_count >= 1
+    # Verify error event was streamed
+    mock_stream_custom_event.assert_called_once()
+    call_args = mock_stream_custom_event.call_args
+    assert call_args[0][0] == "error"  # event_name
+    assert call_args[0][1] == "process_and_rank_markets"  # node

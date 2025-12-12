@@ -28,6 +28,7 @@ from pydantic import BaseModel
 from polyplexity_agent import _checkpointer, main_graph, run_research_agent
 from polyplexity_agent.db_utils import get_database_manager
 from polyplexity_agent.db_utils.db_setup import setup_checkpointer
+from polyplexity_agent.streaming import create_sse_generator
 
 app = FastAPI()
 
@@ -64,52 +65,10 @@ async def chat_agent(
         - Final completion event
     """
     async def sse_generator():
-        try:
-            final_response = None
-            
-            # Run research agent and stream events
-            for mode, data in run_research_agent(request.query, thread_id=thread_id):
-                if mode == "custom":
-                    # Emit custom events (supervisor_decision, generated_queries, etc.)
-                    event_data = json.dumps(data)
-                    yield f"data: {event_data}\n\n"
-                    
-                    # Capture final report when complete
-                    if data.get("event") == "final_report_complete":
-                        final_response = data.get("report", "")
-                
-                elif mode == "updates":
-                    # Emit state updates
-                    for node_name, node_data in data.items():
-                        update_data = {
-                            "type": "update",
-                            "node": node_name,
-                            "data": node_data
-                        }
-                        event_data = json.dumps(update_data)
-                        yield f"data: {event_data}\n\n"
-                        
-                        # Capture final report from state update
-                        if isinstance(node_data, dict) and "final_report" in node_data:
-                            final_response = node_data.get("final_report", "")
-            
-            # Emit final completion event
-            completion_data = {
-                "type": "complete",
-                "response": final_response or ""
-            }
-            event_data = json.dumps(completion_data)
-            yield f"data: {event_data}\n\n"
-            
-        except Exception as e:
-            # Stream error event before raising
-            error_data = {
-                "event": "error",
-                "error": str(e)
-            }
-            event_data = json.dumps(error_data)
-            yield f"data: {event_data}\n\n"
-            raise
+        # Use SSE generator from streaming module
+        # It handles all event formatting and completion/error events
+        async for sse_line in create_sse_generator(run_research_agent(request.query, thread_id=thread_id)):
+            yield sse_line
     
     return StreamingResponse(
         sse_generator(),
