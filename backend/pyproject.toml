@@ -17,3 +17,10 @@ classifiers = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["polyplexity_agent*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["tests/scripts", "tests/run_graphs"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

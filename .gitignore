@@ -272,3 +272,43 @@ backend_legacy/reports/*.md
 
 # Historical data (if sensitive)
 historical_data.json
+
+
+#vite stuff
+s/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+
+
+/build
+dist-ssr
+.env*.local
+*.local
+.vscode/*
+!.vscode/extensions.json
+*.code-workspace
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Visual Studio
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

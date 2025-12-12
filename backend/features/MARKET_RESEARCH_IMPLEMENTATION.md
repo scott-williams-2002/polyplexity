@@ -89,7 +89,7 @@ This document summarizes the implementation of the market research subgraph that
 
 ### 6. Testing Script
 
-**Created**: `run_graphs/run_market_research.py`
+**Created**: `tests/run_graphs/run_market_research.py`
 
 A standalone script to test the market research subgraph with real LLM calls:
 - Hardcodes user request and AI-generated report
@@ -101,7 +101,7 @@ A standalone script to test the market research subgraph with real LLM calls:
 **Usage**:
 ```bash
 cd polyplexity/backend
-python run_graphs/run_market_research.py
+python tests/run_graphs/run_market_research.py
 ```
 
 ## Data Flow
@@ -140,7 +140,7 @@ Each approved market includes:
 ## Files Created/Modified
 
 ### Created
-- `polyplexity/backend/run_graphs/run_market_research.py` - Testing script
+- `polyplexity/backend/tests/run_graphs/run_market_research.py` - Testing script
 
 ### Modified
 - `polyplexity_agent/models.py` - Added Pydantic models
@@ -156,7 +156,7 @@ Each approved market includes:
 The subgraph can be tested using:
 ```bash
 cd polyplexity/backend
-python run_graphs/run_market_research.py
+python tests/run_graphs/run_market_research.py
 ```
 
 The script uses hardcoded user request and AI report, runs the full workflow, and displays results.
