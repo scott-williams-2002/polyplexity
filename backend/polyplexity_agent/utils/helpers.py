@@ -95,19 +95,24 @@ def generate_thread_name(user_query: str) -> str:
 
 
 def log_node_state(
-    logger,
+    logger: Optional[Any],
     node_name: str,
     graph_type: str,
     state: Dict[str, Any],
     timing: str,
     iteration: Optional[int] = None,
     additional_info: Optional[str] = None
-):
+) -> None:
     """
-    Log node state using the state logger.
+    Log node state using the StateLogger for local debugging.
+    
+    This helper function wraps StateLogger.log_state() to capture complete state
+    dumps for debugging LLM runs locally. It writes human-readable state snapshots
+    to text files, which is different from the structlog logger used for general
+    application logging.
     
     Args:
-        logger: StateLogger instance (can be None)
+        logger: StateLogger instance (can be None to disable logging)
         node_name: Name of the node
         graph_type: Type of graph (MAIN_GRAPH or SUBGRAPH)
         state: State dictionary to log
@@ -260,6 +265,9 @@ def format_search_url_markdown(url: str) -> str:
     try:
         parsed = urlparse(url)
         domain = parsed.netloc
+        if not domain:
+            # Invalid URL - use the URL itself as display text
+            return f"[{url}]({url})"
         if domain.startswith("www."):
             domain = domain[4:]
         return f"[{domain}]({url})"

@@ -1,15 +1,40 @@
 """
-State logging utility for LangGraph execution tracking.
-Captures full state dumps before and after each node execution.
+State logging utility for debugging LLM runs locally.
+
+This module provides a file-based state logger that captures complete state dumps
+before and after each node execution. It is designed for local debugging and analysis
+of LangGraph agent execution flows.
+
+**Important**: This is different from the structured logger in `logging/logger.py`:
+- **StateLogger** (this module): Human-readable text files with full state dumps for
+  local debugging. Used to inspect the complete state at each step of execution.
+- **structlog logger** (`logging/logger.py`): Machine-readable JSON logs for production
+  application logging (errors, warnings, info messages).
+
+**Why separate?**
+- StateLogger writes large, detailed state snapshots that are only useful during
+  local development/debugging. These files can be very large and contain sensitive data.
+- structlog logger is lightweight, structured, and suitable for production monitoring
+  and log aggregation systems.
+- Keeping them separate allows developers to enable/disable detailed state logging
+  independently from application logging.
 """
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 
 class StateLogger:
-    """Manages state logging to text files for debugging and analysis."""
+    """
+    Manages state logging to human-readable text files for local debugging.
+    
+    This logger captures complete state dictionaries before and after each node
+    execution, writing them to text files in a readable format. It is intended
+    for local development and debugging of LLM agent runs, not for production use.
+    
+    Note: This is separate from the structlog logger (`logging/logger.py`) which
+    handles general application logging in JSON format for production monitoring.
+    """
     
     def __init__(self, log_file_path: Path):
         """

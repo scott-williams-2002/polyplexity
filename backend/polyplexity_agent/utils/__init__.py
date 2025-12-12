@@ -10,6 +10,7 @@ from .helpers import (
     log_node_state,
     save_messages_and_trace,
     ensure_trace_completeness,
+    format_search_url_markdown,
 )
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "log_node_state",
     "save_messages_and_trace",
     "ensure_trace_completeness",
+    "format_search_url_markdown",
 ]
 
