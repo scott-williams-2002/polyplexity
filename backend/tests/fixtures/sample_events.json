@@ -1,0 +1,167 @@
+{
+  "trace_events": [
+    {
+      "type": "trace",
+      "timestamp": 1234567890000,
+      "node": "supervisor",
+      "event": "node_call",
+      "payload": {
+        "event": "trace",
+        "type": "node_call",
+        "node": "supervisor",
+        "timestamp": 1234567890000
+      }
+    },
+    {
+      "type": "trace",
+      "timestamp": 1234567890100,
+      "node": "supervisor",
+      "event": "reasoning",
+      "payload": {
+        "event": "trace",
+        "type": "reasoning",
+        "node": "supervisor",
+        "reasoning": "Need to research this topic",
+        "timestamp": 1234567890100
+      }
+    },
+    {
+      "type": "trace",
+      "timestamp": 1234567890200,
+      "node": "researcher",
+      "event": "search",
+      "payload": {
+        "event": "trace",
+        "type": "search",
+        "node": "researcher",
+        "query": "artificial intelligence",
+        "timestamp": 1234567890200
+      }
+    }
+  ],
+  "custom_events": [
+    {
+      "type": "custom",
+      "timestamp": 1234567890300,
+      "node": "supervisor",
+      "event": "supervisor_decision",
+      "payload": {
+        "decision": "research",
+        "topic": "test topic",
+        "reasoning": "Need to research"
+      }
+    },
+    {
+      "type": "custom",
+      "timestamp": 1234567890400,
+      "node": "researcher",
+      "event": "web_search_url",
+      "payload": {
+        "url": "https://example.com/ai"
+      }
+    },
+    {
+      "type": "custom",
+      "timestamp": 1234567890500,
+      "node": "researcher",
+      "event": "generated_queries",
+      "payload": {
+        "queries": ["AI definition", "AI applications", "AI history"]
+      }
+    },
+    {
+      "type": "custom",
+      "timestamp": 1234567890600,
+      "node": "researcher",
+      "event": "research_synthesis_done",
+      "payload": {
+        "summary": "Research synthesis complete"
+      }
+    },
+    {
+      "type": "custom",
+      "timestamp": 1234567890700,
+      "node": "final_report",
+      "event": "writing_report",
+      "payload": {
+        "status": "in_progress"
+      }
+    },
+    {
+      "type": "custom",
+      "timestamp": 1234567890800,
+      "node": "final_report",
+      "event": "final_report_complete",
+      "payload": {
+        "report": "Final report on test topic"
+      }
+    },
+    {
+      "type": "custom",
+      "timestamp": 1234567890900,
+      "node": "entrypoint",
+      "event": "thread_id",
+      "payload": {
+        "thread_id": "test_thread_123"
+      }
+    }
+  ],
+  "state_update_events": [
+    {
+      "type": "state_update",
+      "timestamp": 1234567891000,
+      "node": "supervisor",
+      "event": "state_update",
+      "payload": {
+        "iterations": 1,
+        "next_topic": "test topic"
+      }
+    },
+    {
+      "type": "state_update",
+      "timestamp": 1234567891100,
+      "node": "call_researcher",
+      "event": "state_update",
+      "payload": {
+        "research_notes": ["## Research on: test topic\nMock research summary"]
+      }
+    },
+    {
+      "type": "state_update",
+      "timestamp": 1234567891200,
+      "node": "final_report",
+      "event": "state_update",
+      "payload": {
+        "final_report": "Final report on test topic"
+      }
+    },
+    {
+      "type": "state_update",
+      "timestamp": 1234567891300,
+      "node": "summarize_conversation",
+      "event": "state_update",
+      "payload": {
+        "conversation_summary": "Summary of conversation"
+      }
+    }
+  ],
+  "updates_mode_examples": {
+    "single_node_update": {
+      "call_researcher": {
+        "research_notes": ["## Research on: test topic\nMock research summary"]
+      }
+    },
+    "multiple_node_updates": {
+      "supervisor": {
+        "iterations": 1,
+        "next_topic": "test topic"
+      },
+      "call_researcher": {
+        "research_notes": ["## Research on: test topic\nMock research summary"]
+      },
+      "final_report": {
+        "final_report": "Final report on test topic"
+      }
+    }
+  }
+}

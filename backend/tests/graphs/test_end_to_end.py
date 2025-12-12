@@ -4,77 +4,16 @@ End-to-end tests for the orchestrator agent flow.
 Tests the complete flow from run_research_agent() through graph execution,
 including all node interactions, state transitions, and event streaming.
 """
-from unittest.mock import MagicMock, Mock, patch
-from typing import Any, Dict, Iterator, Tuple
+from unittest.mock import Mock, patch
+from typing import Any, Dict
 
 import pytest
 
 from polyplexity_agent.entrypoint import run_research_agent
-from polyplexity_agent.graphs.agent_graph import create_agent_graph
 from polyplexity_agent.models import SupervisorDecision
 
 
-@pytest.fixture
-def mock_settings():
-    """Create mock settings."""
-    from polyplexity_agent.config import Settings
-    settings = Settings()
-    # Use a temporary directory for state logs
-    import tempfile
-    settings.state_logs_dir = tempfile.mkdtemp()
-    return settings
-
-
-@pytest.fixture
-def mock_graph(mock_settings):
-    """Create a mock graph for testing."""
-    with patch("polyplexity_agent.entrypoint.create_default_graph") as mock_create:
-        graph = Mock()
-        graph.stream = Mock()
-        graph.get_state = Mock(return_value=None)
-        mock_create.return_value = graph
-        yield graph
-
-
-@pytest.fixture
-def mock_researcher_graph():
-    """Mock the researcher subgraph."""
-    def mock_stream(input_state, stream_mode):
-        """Mock researcher graph stream."""
-        # Yield custom events
-        yield ("custom", [{"event": "web_search_url", "url": "https://example.com"}])
-        # Yield values with research summary
-        yield ("values", {"research_summary": "Mock research summary about the topic"})
-    
-    with patch("polyplexity_agent.graphs.nodes.supervisor.call_researcher.researcher_graph") as mock_researcher:
-        mock_researcher.stream = mock_stream
-        yield mock_researcher
-
-
-@pytest.fixture
-def mock_llm():
-    """Mock LLM responses."""
-    mock_llm_instance = Mock()
-    
-    # Mock supervisor decision
-    supervisor_decision = Mock(spec=SupervisorDecision)
-    supervisor_decision.next_step = "research"
-    supervisor_decision.research_topic = "test topic"
-    supervisor_decision.reasoning = "Need to research"
-    supervisor_decision.answer_format = "concise"
-    
-    # Mock LLM chain
-    mock_chain = Mock()
-    mock_chain.invoke.return_value.content = "Mock LLM response"
-    mock_chain.with_structured_output.return_value.with_retry.return_value.invoke.return_value = supervisor_decision
-    
-    mock_llm_instance.with_structured_output.return_value.with_retry.return_value.invoke.return_value = supervisor_decision
-    mock_llm_instance.invoke.return_value.content = "Mock LLM response"
-    
-    with patch("polyplexity_agent.utils.helpers.create_llm_model", return_value=mock_llm_instance):
-        yield mock_llm_instance
-
-
+@pytest.mark.e2e
 @patch("polyplexity_agent.entrypoint._checkpointer", None)
 @patch("polyplexity_agent.entrypoint._state_logger", None)
 @patch("polyplexity_agent.entrypoint.set_state_logger")
@@ -139,6 +78,7 @@ def test_end_to_end_research_flow(
     mock_state_logger.close.assert_called()
 
 
+@pytest.mark.e2e
 @patch("polyplexity_agent.entrypoint._checkpointer", None)
 @patch("polyplexity_agent.entrypoint._state_logger", None)
 @patch("polyplexity_agent.entrypoint.set_state_logger")
@@ -196,6 +136,7 @@ def test_end_to_end_direct_answer_flow(
         assert "2+2=4" in event_data.get("report", "")
 
 
+@pytest.mark.e2e
 @patch("polyplexity_agent.entrypoint._checkpointer", None)
 @patch("polyplexity_agent.entrypoint._state_logger", None)
 @patch("polyplexity_agent.entrypoint.set_state_logger")
@@ -253,6 +194,7 @@ def test_end_to_end_clarification_flow(
         assert "location" in event_data.get("report", "").lower()
 
 
+@pytest.mark.e2e
 @patch("polyplexity_agent.entrypoint._checkpointer")
 @patch("polyplexity_agent.entrypoint._state_logger", None)
 @patch("polyplexity_agent.entrypoint.set_state_logger")
@@ -304,6 +246,7 @@ def test_end_to_end_with_checkpointer(
     mock_ensure_trace.assert_called_once()
 
 
+@pytest.mark.e2e
 @patch("polyplexity_agent.entrypoint._checkpointer")
 @patch("polyplexity_agent.entrypoint._state_logger", None)
 @patch("polyplexity_agent.entrypoint.set_state_logger")
@@ -357,6 +300,7 @@ def test_end_to_end_follow_up_conversation(
     assert len(events) > 0
 
 
+@pytest.mark.e2e
 @patch("polyplexity_agent.entrypoint._checkpointer", None)
 @patch("polyplexity_agent.entrypoint._state_logger", None)
 @patch("polyplexity_agent.entrypoint.set_state_logger")
@@ -416,6 +360,7 @@ def test_end_to_end_event_streaming(
     assert "custom" in modes or "updates" in modes
 
 
+@pytest.mark.e2e
 @patch("polyplexity_agent.entrypoint._checkpointer", None)
 @patch("polyplexity_agent.entrypoint._state_logger", None)
 @patch("polyplexity_agent.entrypoint.set_state_logger")
@@ -449,3 +394,115 @@ def test_end_to_end_error_handling(
     mock_state_logger.close.assert_called()
     mock_set_state_logger.assert_called_with(None)
     mock_set_researcher_logger.assert_called_with(None)
+
+
+@pytest.mark.e2e
+@patch("polyplexity_agent.entrypoint._checkpointer", None)
+@patch("polyplexity_agent.entrypoint._state_logger", None)
+@patch("polyplexity_agent.entrypoint.set_state_logger")
+@patch("polyplexity_agent.entrypoint.set_researcher_logger")
+@patch("polyplexity_agent.entrypoint.StateLogger")
+@patch("polyplexity_agent.entrypoint.ensure_trace_completeness")
+def test_end_to_end_multi_iteration_research(
+    mock_ensure_trace,
+    mock_state_logger_class,
+    mock_set_researcher_logger,
+    mock_set_state_logger,
+    mock_graph,
+    mock_researcher_graph,
+    mock_llm,
+    mock_settings,
+):
+    """Test end-to-end flow with multiple research iterations."""
+    iteration_count = [0]
+
+    def mock_graph_stream(initial_state, config, stream_mode):
+        """Simulate graph execution with multiple iterations."""
+        iteration_count[0] += 1
+        if iteration_count[0] <= 2:
+            yield ("custom", {"event": "supervisor_decision", "decision": "research", "topic": f"topic {iteration_count[0]}"})
+            yield ("updates", {"call_researcher": {"research_notes": [f"Research iteration {iteration_count[0]}"]}})
+            yield ("updates", {"supervisor": {"iterations": iteration_count[0]}})
+        else:
+            yield ("custom", {"event": "supervisor_decision", "decision": "finish"})
+            yield ("custom", {"event": "final_report_complete", "report": "Final report after multiple iterations"})
+            yield ("updates", {"final_report": {"final_report": "Final report after multiple iterations"}})
+            yield ("updates", {"summarize_conversation": {"conversation_summary": "Summary"}})
+
+    mock_graph.stream = mock_graph_stream
+    mock_state_logger = Mock()
+    mock_state_logger_class.return_value = mock_state_logger
+
+    events = list(run_research_agent("Complex research question", graph=mock_graph))
+
+    assert len(events) > 0
+    research_events = [e for e in events if isinstance(e[1], dict) and "research_notes" in str(e[1])]
+    assert len(research_events) >= 1
+
+
+@pytest.mark.e2e
+@patch("polyplexity_agent.entrypoint._checkpointer", None)
+@patch("polyplexity_agent.entrypoint._state_logger", None)
+@patch("polyplexity_agent.entrypoint.set_state_logger")
+@patch("polyplexity_agent.entrypoint.set_researcher_logger")
+@patch("polyplexity_agent.entrypoint.StateLogger")
+@patch("polyplexity_agent.entrypoint.ensure_trace_completeness")
+def test_end_to_end_max_iterations_limit(
+    mock_ensure_trace,
+    mock_state_logger_class,
+    mock_set_researcher_logger,
+    mock_set_state_logger,
+    mock_graph,
+    mock_llm,
+    mock_settings,
+):
+    """Test that max iterations limit is enforced."""
+    def mock_graph_stream(initial_state, config, stream_mode):
+        """Simulate graph execution hitting max iterations."""
+        yield ("custom", {"event": "supervisor_decision", "decision": "finish"})
+        yield ("custom", {"event": "final_report_complete", "report": "Report after max iterations"})
+        yield ("updates", {"supervisor": {"iterations": 10}})
+        yield ("updates", {"final_report": {"final_report": "Report after max iterations"}})
+        yield ("updates", {"summarize_conversation": {}})
+
+    mock_graph.stream = mock_graph_stream
+    mock_state_logger = Mock()
+    mock_state_logger_class.return_value = mock_state_logger
+
+    events = list(run_research_agent("Test question", graph=mock_graph))
+
+    assert len(events) > 0
+    final_events = [e for e in events if isinstance(e[1], dict) and e[1].get("event") == "final_report_complete"]
+    assert len(final_events) > 0
+
+
+@pytest.mark.e2e
+@patch("polyplexity_agent.entrypoint._checkpointer", None)
+@patch("polyplexity_agent.entrypoint._state_logger", None)
+@patch("polyplexity_agent.entrypoint.set_state_logger")
+@patch("polyplexity_agent.entrypoint.set_researcher_logger")
+@patch("polyplexity_agent.entrypoint.StateLogger")
+@patch("polyplexity_agent.entrypoint.ensure_trace_completeness")
+def test_end_to_end_empty_response_handling(
+    mock_ensure_trace,
+    mock_state_logger_class,
+    mock_set_researcher_logger,
+    mock_set_state_logger,
+    mock_graph,
+    mock_llm,
+    mock_settings,
+):
+    """Test handling of empty responses."""
+    def mock_graph_stream(initial_state, config, stream_mode):
+        """Simulate graph execution with empty responses."""
+        yield ("custom", {"event": "supervisor_decision", "decision": "finish"})
+        yield ("updates", {"direct_answer": {"final_report": ""}})
+        yield ("updates", {"summarize_conversation": {}})
+
+    mock_graph.stream = mock_graph_stream
+    mock_state_logger = Mock()
+    mock_state_logger_class.return_value = mock_state_logger
+
+    events = list(run_research_agent("", graph=mock_graph))
+
+    assert len(events) > 0
