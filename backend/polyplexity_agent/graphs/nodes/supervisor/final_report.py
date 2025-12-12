@@ -6,7 +6,7 @@ Writes the final answer/report based on accumulated research notes.
 from langchain_core.messages import HumanMessage
 
 from polyplexity_agent.config import Settings
-from polyplexity_agent.execution_trace import create_trace_event
+from polyplexity_agent.streaming.event_serializers import create_trace_event
 from polyplexity_agent.graphs.state import SupervisorState
 from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
@@ -53,7 +53,7 @@ def _generate_final_report(state: SupervisorState) -> str:
 def final_report_node(state: SupervisorState):
     """Writes the final answer/report based on accumulated research notes."""
     try:
-        from polyplexity_agent.orchestrator import _state_logger
+        from polyplexity_agent.utils.state_manager import _state_logger
         log_node_state(_state_logger, "final_report", "MAIN_GRAPH", dict(state), "BEFORE", state.get("iterations", 0), f"Research notes count: {len(state.get('research_notes', []))}")
         node_call_event = create_trace_event("node_call", "final_report", {})
         stream_trace_event("node_call", "final_report", {})

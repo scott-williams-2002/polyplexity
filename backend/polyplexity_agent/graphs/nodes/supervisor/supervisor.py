@@ -8,7 +8,7 @@ from typing import Dict
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from polyplexity_agent.config import Settings
-from polyplexity_agent.execution_trace import create_trace_event
+from polyplexity_agent.streaming.event_serializers import create_trace_event
 from polyplexity_agent.graphs.state import SupervisorState
 from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
@@ -90,7 +90,7 @@ def _emit_supervisor_trace_events(decision: SupervisorDecision, node_call_event:
 def supervisor_node(state: SupervisorState):
     """Decides whether to research more or finish and write the final report."""
     try:
-        from polyplexity_agent.orchestrator import _state_logger
+        from polyplexity_agent.utils.state_manager import _state_logger
         history = state.get("conversation_history", [])
         logger.debug("supervisor_conversation_history", history_count=len(history))
         if history:

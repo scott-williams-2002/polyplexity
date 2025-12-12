@@ -6,7 +6,7 @@ Breaks a research topic into distinct search queries using LLM.
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from polyplexity_agent.config import Settings
-from polyplexity_agent.execution_trace import create_trace_event
+from polyplexity_agent.streaming.event_serializers import create_trace_event
 from polyplexity_agent.graphs.state import ResearcherState
 from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event

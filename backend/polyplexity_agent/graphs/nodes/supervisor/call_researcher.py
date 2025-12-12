@@ -3,7 +3,7 @@ Call researcher node for the main agent graph.
 
 Invokes the researcher subgraph with the current research topic.
 """
-from polyplexity_agent.execution_trace import create_trace_event
+from polyplexity_agent.streaming.event_serializers import create_trace_event
 from polyplexity_agent.graphs.state import SupervisorState
 from polyplexity_agent.graphs.subgraphs.researcher import researcher_graph
 from polyplexity_agent.logging import get_logger
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 def call_researcher_node(state: SupervisorState):
     """Invokes the researcher subgraph with the current research topic."""
     try:
-        from polyplexity_agent.orchestrator import _state_logger
+        from polyplexity_agent.utils.state_manager import _state_logger
         log_node_state(_state_logger, "call_researcher", "MAIN_GRAPH", dict(state), "BEFORE", state.get("iterations", 0), f"Topic: {state.get('next_topic', 'N/A')}")
         topic = state["next_topic"]
         answer_format = state.get("answer_format", "concise")

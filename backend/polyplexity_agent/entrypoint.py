@@ -12,7 +12,7 @@ from typing import Any, Iterator, Optional, Tuple
 from polyplexity_agent.config import Settings
 from polyplexity_agent.graphs.agent_graph import create_agent_graph
 from polyplexity_agent.logging import get_logger
-from polyplexity_agent.orchestrator import (
+from polyplexity_agent.utils.state_manager import (
     _checkpointer,
     _state_logger,
     set_state_logger,

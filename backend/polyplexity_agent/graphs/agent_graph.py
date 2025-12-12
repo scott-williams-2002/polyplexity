@@ -4,7 +4,6 @@ Main agent graph construction and compilation.
 This module contains the logic for building and compiling the main supervisor
 agent graph using LangGraph.
 """
-import traceback
 from typing import Any, Optional
 
 from langgraph.graph import END, START, StateGraph
@@ -20,6 +19,7 @@ from polyplexity_agent.graphs.nodes.supervisor.summarize_conversation import sum
 from polyplexity_agent.graphs.state import SupervisorState
 from polyplexity_agent.logging import get_logger
 from polyplexity_agent.testing import draw_graph
+from polyplexity_agent.utils.state_manager import ensure_checkpointer_setup
 
 logger = get_logger(__name__)
 
@@ -42,32 +42,6 @@ def route_supervisor(state: SupervisorState):
         if current_loop >= 5:
             return "final_report"
     return "call_researcher"
-
-
-def _ensure_checkpointer_setup(checkpointer: Optional[Any]) -> Optional[Any]:
-    """
-    Ensure checkpointer setup is called once.
-    
-    Args:
-        checkpointer: The checkpointer instance to setup
-        
-    Returns:
-        The checkpointer instance, or None if setup failed
-    """
-    if checkpointer:
-        try:
-            if hasattr(checkpointer, "setup"):
-                checkpointer.setup()
-                logger.info("checkpointer_setup_completed")
-            else:
-                logger.warning("checkpointer_no_setup_method")
-            return checkpointer
-        except Exception as e:
-            logger.error("checkpointer_setup_failed", error=str(e), exc_info=True)
-            traceback.print_exc()
-            logger.info("continuing_without_checkpointing")
-            return None
-    return checkpointer
 
 
 def create_agent_graph(
@@ -118,7 +92,7 @@ def create_agent_graph(
     
     # Compile graph with checkpointer if available
     if checkpointer:
-        checkpointer = _ensure_checkpointer_setup(checkpointer)
+        checkpointer = ensure_checkpointer_setup(checkpointer)
         if checkpointer:
             compiled_graph = builder.compile(checkpointer=checkpointer)
         else:

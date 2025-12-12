@@ -7,7 +7,7 @@ from typing import Dict
 
 from langchain_core.messages import HumanMessage
 
-from polyplexity_agent.execution_trace import create_trace_event
+from polyplexity_agent.streaming.event_serializers import create_trace_event
 from polyplexity_agent.graphs.state import SupervisorState
 from polyplexity_agent.logging import get_logger
 from polyplexity_agent.prompts.response_generator import DIRECT_ANSWER_PROMPT_TEMPLATE
@@ -47,7 +47,7 @@ def _handle_direct_answer(state: SupervisorState) -> Dict:
 def direct_answer_node(state: SupervisorState):
     """Answers simple questions directly without research."""
     try:
-        from polyplexity_agent.orchestrator import _state_logger
+        from polyplexity_agent.utils.state_manager import _state_logger
         log_node_state(_state_logger, "direct_answer", "MAIN_GRAPH", dict(state), "BEFORE")
         result = _handle_direct_answer(state)
         log_node_state(_state_logger, "direct_answer", "MAIN_GRAPH", {**state, **result}, "AFTER")

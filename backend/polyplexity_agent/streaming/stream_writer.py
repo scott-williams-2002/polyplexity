@@ -13,7 +13,7 @@ from polyplexity_agent.streaming.event_serializers import (
     serialize_state_update,
     serialize_trace_event,
 )
-from polyplexity_agent.execution_trace import TraceEventType
+from polyplexity_agent.streaming.event_serializers import TraceEventType
 
 
 def stream_event(

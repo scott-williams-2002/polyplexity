@@ -3,7 +3,7 @@ Fetch markets node for the market research subgraph.
 
 Fetches market data from Polymarket based on generated queries.
 """
-from polyplexity_agent.execution_trace import create_trace_event
+from polyplexity_agent.streaming.event_serializers import create_trace_event
 from polyplexity_agent.graphs.state import MarketResearchState
 from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event

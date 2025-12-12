@@ -9,6 +9,8 @@ from polyplexity_agent.streaming.event_processor import (
     process_update_events,
 )
 from polyplexity_agent.streaming.event_serializers import (
+    TraceEventType,
+    create_trace_event,
     serialize_custom_event,
     serialize_event,
     serialize_state_update,
@@ -29,6 +31,8 @@ from polyplexity_agent.streaming.stream_writer import (
 
 __all__ = [
     # Event serializers
+    "TraceEventType",
+    "create_trace_event",
     "serialize_event",
     "serialize_trace_event",
     "serialize_custom_event",

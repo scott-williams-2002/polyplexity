@@ -7,7 +7,7 @@ from typing import Any, Dict
 
 from langchain_tavily import TavilySearch
 
-from polyplexity_agent.execution_trace import create_trace_event
+from polyplexity_agent.streaming.event_serializers import create_trace_event
 from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
 from polyplexity_agent.utils.helpers import format_search_url_markdown, log_node_state

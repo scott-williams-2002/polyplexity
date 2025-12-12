@@ -5,7 +5,7 @@ Asks the user for clarification when the request is ambiguous.
 """
 from typing import Dict
 
-from polyplexity_agent.execution_trace import create_trace_event
+from polyplexity_agent.streaming.event_serializers import create_trace_event
 from polyplexity_agent.graphs.state import SupervisorState
 from polyplexity_agent.logging import get_logger
 from polyplexity_agent.streaming import stream_custom_event, stream_trace_event
@@ -39,7 +39,7 @@ def _handle_clarification(state: SupervisorState) -> Dict:
 def clarification_node(state: SupervisorState):
     """Asks the user for clarification when the request is ambiguous."""
     try:
-        from polyplexity_agent.orchestrator import _state_logger
+        from polyplexity_agent.utils.state_manager import _state_logger
         log_node_state(_state_logger, "clarification", "MAIN_GRAPH", dict(state), "BEFORE")
         result = _handle_clarification(state)
         log_node_state(_state_logger, "clarification", "MAIN_GRAPH", {**state, **result}, "AFTER")
