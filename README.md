@@ -87,14 +87,7 @@ The entire process is transparent: you can see the AI's reasoning, track sources
    source .venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. Install the polyplexity_agent package in editable mode:
-   ```bash
-   cd polyplexity_agent
-   uv pip install -e .
-   cd ..
-   ```
-
-4. Install backend dependencies:
+3. Install backend dependencies (this will also install the polyplexity_agent package):
    ```bash
    uv pip install -r requirements.txt
    ```

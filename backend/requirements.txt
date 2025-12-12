@@ -96,3 +96,6 @@ pytest>=7.0.0
 pytest-mock>=3.10.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.0.0
+fastapi==0.124.2
+langchain-groq==1.1.0
+-e polyplexity_agent
