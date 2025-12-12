@@ -30,9 +30,15 @@ tests/
 ## Running Tests
 
 ### Run all tests
+
+Navigate to the tests directory and run pytest:
+
 ```bash
+cd backend/tests
 pytest
 ```
+
+This will run all unit tests for the backend.
 
 ### Run specific test types
 ```bash

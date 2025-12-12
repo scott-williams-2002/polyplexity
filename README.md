@@ -100,6 +100,19 @@ PolyPlexity is an AI-powered chat interface that provides research capabilities 
 
 The frontend uses environment variables for configuration. The default backend API URL is `http://localhost:8000`. You can override this by setting the `VITE_API_URL` environment variable.
 
+## Testing
+
+### Backend Tests
+
+To run the backend unit tests:
+
+```bash
+cd backend/tests
+pytest
+```
+
+This will run all unit tests for the backend. For more detailed testing information, see the [tests README](backend/tests/README.md).
+
 ## Development
 
 - Frontend runs on port **3000** (configurable in `vite.config.ts`)
