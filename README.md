@@ -84,19 +84,19 @@ The entire process is transparent: you can see the AI's reasoning, track sources
 2. Create a virtual environment using uv:
    ```bash
    uv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   source .venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
 3. Install the polyplexity_agent package in editable mode:
    ```bash
    cd polyplexity_agent
-   pip install -e .
+   uv pip install -e .
    cd ..
    ```
 
 4. Install backend dependencies:
    ```bash
-   pip install -r requirements.txt
+   uv pip install -r requirements.txt
    ```
 
 5. Run the backend server:
