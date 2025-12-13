@@ -1,0 +1,66 @@
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Testing
+.pytest_cache/
+tests/
+*.pytest_cache
+
+# Development files
+.env
+.env.*
+.git/
+.gitignore
+*.md
+*.txt
+!requirements.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+*.egg
+
+# State logs and runtime artifacts
+state_logs/
+*.log
+
+# Documentation
+docs/
+*.md
+!polyplexity_agent/docs/
+
+# Project structure files
+PROJECT_STRUCTURE.md
+STRUCTURE_OVERVIEW.md
+graph_visualization.png
+
+# Rules (not needed in container)
+rules/
+
+# Models directory (if not needed)
+models/
+
+# Utils directory (if not needed)
+utils/
+
+# Node modules (if any)
+node_modules/
+

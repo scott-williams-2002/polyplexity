@@ -12,15 +12,17 @@ Package Installation Requirement:
         from polyplexity_agent import _checkpointer, main_graph, run_research_agent
 """
 import json
+import os
 import sys
 import traceback
 from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import FastAPI, Query, HTTPException, status
+from fastapi import FastAPI, Query, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
 # Import from installed polyplexity_agent package
@@ -32,10 +34,36 @@ from polyplexity_agent.streaming import create_sse_generator
 
 app = FastAPI()
 
+# Bearer token authentication
+BEARER_KEY = os.getenv("BEARER_KEY")
+
+# Security scheme for receiving the bearer token
+security = HTTPBearer()
+
+# Dependency to enforce Bearer token auth
+def verify_bearer_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication scheme."
+        )
+    token = credentials.credentials
+    if token != BEARER_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing token."
+        )
+    # Authorized
+    return token
+
+# Configure CORS origins from environment variable
+cors_origins_env = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+cors_origins = [origin.strip() for origin in cors_origins_env.split(",")]
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,7 +77,8 @@ class QueryRequest(BaseModel):
 @app.post("/chat")
 async def chat_agent(
     request: QueryRequest,
-    thread_id: Optional[str] = Query(None, description="Optional thread ID for conversation continuity")
+    thread_id: Optional[str] = Query(None, description="Optional thread ID for conversation continuity"),
+    token: str = Depends(verify_bearer_token)
 ):
     """
     Chat endpoint that streams agent responses using Server-Sent Events (SSE).
@@ -85,7 +114,7 @@ class ThreadInfo(BaseModel):
 
 
 @app.get("/threads", response_model=List[ThreadInfo])
-async def list_threads():
+async def list_threads(token: str = Depends(verify_bearer_token)):
     """
     List all conversation threads from the database.
     
@@ -140,7 +169,7 @@ async def list_threads():
 
 
 @app.delete("/threads/{thread_id}")
-async def delete_thread(thread_id: str):
+async def delete_thread(thread_id: str, token: str = Depends(verify_bearer_token)):
     """
     Delete a conversation thread from the database.
     
@@ -192,7 +221,7 @@ class Message(BaseModel):
 
 
 @app.get("/threads/{thread_id}/history", response_model=List[Message])
-async def get_thread_history(thread_id: str):
+async def get_thread_history(thread_id: str, token: str = Depends(verify_bearer_token)):
     """
     Get conversation history for a specific thread.
     

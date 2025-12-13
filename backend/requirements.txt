@@ -98,4 +98,3 @@ pytest-asyncio>=0.21.0
 pytest-cov>=4.0.0
 fastapi==0.124.2
 langchain-groq==1.1.0
--e polyplexity_agent
