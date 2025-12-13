@@ -78,7 +78,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
   }, [message.content, message.isStreaming, message.stage]);
 
   return (
-    <div className="flex flex-col mb-10 w-full max-w-full md:max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 px-2 md:px-0">
+    <div className="flex flex-col mb-10 w-full max-w-[calc(100vw-1rem)] md:max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 px-2 md:px-0 box-border">
       
       {/* Header Section: Reasoning + Sources (Fixed during streaming, scrollable when completed) */}
       <div className={`${shouldBeSticky ? 'sticky top-0 z-10' : ''} bg-background/95 backdrop-blur-sm border-b border-border pb-4 mb-4 flex-shrink-0`}>
@@ -115,7 +115,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
                   <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"></span>
                </div>
           ) : (
-            <div className="prose prose-neutral dark:prose-invert max-w-none text-foreground leading-relaxed">
+            <div className="prose prose-neutral dark:prose-invert max-w-none text-foreground leading-relaxed w-full box-border">
               <ReactMarkdown 
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -136,7 +136,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
                     )
                   },
                   pre: ({ children }) => (
-                    <pre className="bg-muted p-3 rounded-md overflow-x-auto mb-2 text-xs font-mono max-w-full">
+                    <pre className="bg-muted p-3 rounded-md overflow-x-auto mb-2 text-xs font-mono w-full max-w-full box-border">
                       {children}
                     </pre>
                   ),
@@ -151,8 +151,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
                     </blockquote>
                   ),
                   table: ({ children }) => (
-                    <div className="overflow-x-auto my-2 max-w-full">
-                      <table className="min-w-full border-collapse border border-border table-auto">
+                    <div className="overflow-x-auto my-2 w-full max-w-full box-border">
+                      <table className="min-w-full border-collapse border border-border table-auto w-full">
                         {children}
                       </table>
                     </div>
@@ -190,9 +190,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
 
       {/* Polymarket Blurb - Displayed above charts */}
       {message.polymarketBlurb && (
-        <div className="mt-6 px-4 py-3 rounded-lg bg-muted/30 border-2 border-purple-500/30">
+        <div className="mt-6 px-4 py-3 rounded-lg bg-muted/30 border-2 border-purple-500/30 w-full box-border">
           <h3 className="text-sm font-semibold text-purple-400 mb-2">Polymarket Agent Suggestions ...</h3>
-          <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground">
+          <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground w-full box-border">
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
               components={{

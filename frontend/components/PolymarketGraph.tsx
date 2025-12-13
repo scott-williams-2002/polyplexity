@@ -238,7 +238,7 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
   }, [chartData, tokenDataList]);
 
   return (
-    <div className="flex flex-col w-full h-[300px] md:h-[350px] bg-white border border-border rounded-xl shadow-sm overflow-hidden ring-1 ring-border/50">
+    <div className="flex flex-col w-full max-w-[calc(100vw-2rem)] md:max-w-full h-[300px] md:h-[350px] bg-white border border-border rounded-xl shadow-sm overflow-hidden ring-1 ring-border/50 box-border">
       
       {/* 1. Header Section */}
       <div className="flex-none px-3 md:px-6 py-3 md:py-5 border-b border-border bg-white flex flex-col md:flex-row justify-between items-start md:items-end gap-3 md:gap-0 z-10">
@@ -310,11 +310,11 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
       </div>
 
       {/* 2. Main Content Area (Fixed Height Flex Container) */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 min-w-0">
         
         {/* Left: Chart Area */}
         <div className={cn(
-          "w-full md:w-[70%] h-full relative md:border-r border-border bg-white p-1 md:p-2",
+          "w-full md:w-[70%] h-full relative md:border-r border-border bg-white p-1 md:p-2 min-w-0 box-border",
           activeTab === 'chart' ? 'block' : 'hidden md:block'
         )}>
           {error ? (
@@ -323,7 +323,7 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
                <span className="text-xs mt-1">{error}</span>
              </div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" className="w-full h-full min-w-0">
               <AreaChart
                 data={chartData}
                 onMouseMove={handleMouseMove}
@@ -397,7 +397,7 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
         {/* Right: Market Data (Scrollable) */}
         <div 
           className={cn(
-            "w-full md:w-[30%] flex-col h-full bg-white",
+            "w-full md:w-[30%] flex-col h-full bg-white min-w-0 box-border",
             activeTab === 'data' ? 'flex' : 'hidden md:flex'
           )}
           onMouseEnter={() => isHoveringSidebar.current = true}

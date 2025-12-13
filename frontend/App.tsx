@@ -350,7 +350,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden overflow-x-hidden font-sans w-screen max-w-full">
       
       {/* Sidebar (Desktop) */}
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-muted/10 p-4">
@@ -404,7 +404,7 @@ export default function App() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col relative h-full">
+      <main className="flex-1 flex flex-col relative h-full w-full max-w-full overflow-x-hidden">
         {/* Header (Mobile) */}
         <header className="md:hidden flex items-center justify-between px-4 h-14 border-b border-border bg-background/50 backdrop-blur-sm sticky top-0 z-40">
            <button 

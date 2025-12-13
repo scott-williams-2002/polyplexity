@@ -37,8 +37,8 @@ export const InputArea: React.FC<InputAreaProps> = ({ onSend, disabled }) => {
   }, [input]);
 
   return (
-    <div className="sticky bottom-0 bg-background/80 backdrop-blur-md border-t border-border/50 pb-6 pt-2 px-2 md:px-4 z-50">
-      <div className="max-w-full md:max-w-4xl mx-auto relative">
+    <div className="sticky bottom-0 bg-background/80 backdrop-blur-md border-t border-border/50 pb-6 pt-2 px-2 md:px-4 z-50 w-full max-w-[100vw] overflow-x-hidden box-border">
+      <div className="max-w-[calc(100vw-1rem)] md:max-w-4xl mx-auto relative w-full box-border">
         <div className={cn(
           "relative flex flex-col bg-muted/30 border border-input rounded-xl shadow-sm transition-all duration-200 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50",
           disabled && "opacity-50 cursor-not-allowed"
