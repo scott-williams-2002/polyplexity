@@ -152,7 +152,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
                   ),
                   table: ({ children }) => (
                     <div className="overflow-x-auto my-2 max-w-full">
-                      <table className="w-full border-collapse border border-border table-auto">
+                      <table className="min-w-full border-collapse border border-border table-auto">
                         {children}
                       </table>
                     </div>

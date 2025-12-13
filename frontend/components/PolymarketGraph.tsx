@@ -9,6 +9,7 @@ import {
   CartesianGrid
 } from 'recharts';
 import { format } from 'date-fns';
+import { cn } from '../lib/utils';
 import { PricePoint, ApprovedMarket } from '../types';
 import { fetchPriceHistory } from '../services/polymarketService';
 
@@ -55,6 +56,7 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
   const [hoveredPrice, setHoveredPrice] = useState<number | null>(null);
   const [hoveredDate, setHoveredDate] = useState<number | null>(null);
   const [isDescriptionOpen, setIsDescriptionOpen] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'chart' | 'data'>('chart');
 
   const sidebarRef = useRef<HTMLDivElement>(null);
   const tokenRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -239,28 +241,54 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
     <div className="flex flex-col w-full h-[350px] bg-white border border-border rounded-xl shadow-sm overflow-hidden ring-1 ring-border/50">
       
       {/* 1. Header Section */}
-      <div className="flex-none px-6 py-5 border-b border-border bg-white flex justify-between items-end z-10">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-primary text-[10px] uppercase font-bold tracking-widest mb-1.5 flex items-center gap-2">
-            Polymarket Insight
-            {loading && <span className="w-2 h-2 rounded-full bg-primary animate-ping" />}
-          </h2>
+      <div className="flex-none px-4 md:px-6 py-4 md:py-5 border-b border-border bg-white flex flex-col md:flex-row justify-between items-start md:items-end gap-4 md:gap-0 z-10">
+        <div className="flex-1 min-w-0 w-full">
+          <div className="flex justify-between items-start mb-1.5">
+            <h2 className="text-primary text-[10px] uppercase font-bold tracking-widest flex items-center gap-2">
+              Polymarket Insight
+              {loading && <span className="w-2 h-2 rounded-full bg-primary animate-ping" />}
+            </h2>
+            
+            {/* Mobile Tab Toggle */}
+            <div className="flex md:hidden bg-muted/50 rounded-lg p-1 gap-1">
+              <button
+                onClick={() => setActiveTab('chart')}
+                className={cn(
+                  "px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all",
+                  activeTab === 'chart' ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Chart
+              </button>
+              <button
+                onClick={() => setActiveTab('data')}
+                className={cn(
+                  "px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all",
+                  activeTab === 'data' ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Data
+              </button>
+            </div>
+          </div>
+          
           <a
             href={buildEventUrl(market.eventSlug)}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xl font-bold text-foreground tracking-tight leading-tight truncate hover:text-primary hover:underline transition-colors cursor-pointer block"
+            className="text-lg md:text-xl font-bold text-foreground tracking-tight leading-tight truncate hover:text-primary hover:underline transition-colors cursor-pointer block"
             title={`View on Polymarket: ${market.question}`}
           >
             {market.question}
           </a>
         </div>
-        <div className="flex items-end gap-6 ml-4">
-           <div className="text-right">
+        
+        <div className="flex items-center md:items-end gap-4 md:gap-6 w-full md:w-auto justify-between md:justify-end">
+           <div className="text-left md:text-right">
             <div className="text-muted-foreground text-xs mb-1 font-mono">
               {hoveredDate ? format(new Date(hoveredDate * 1000), 'MMM d, yyyy h:mm a') : 'Current Value'}
             </div>
-            <div className={`text-3xl font-mono font-bold text-foreground tracking-tight`}>
+            <div className={`text-2xl md:text-3xl font-mono font-bold text-foreground tracking-tight`}>
               {(displayPrice * 100).toFixed(1)}¢
             </div>
           </div>
@@ -268,7 +296,7 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
           <button 
             onClick={loadData}
             disabled={loading}
-            className="mb-1 p-2 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+            className="p-2 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
             title="Refresh Data"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={loading ? 'animate-spin' : ''}>
@@ -285,7 +313,10 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
       <div className="flex-1 flex min-h-0">
         
         {/* Left: Chart Area */}
-        <div className="w-[70%] h-full relative border-r border-border bg-white p-2">
+        <div className={cn(
+          "w-full md:w-[70%] h-full relative md:border-r border-border bg-white p-2",
+          activeTab === 'chart' ? 'block' : 'hidden md:block'
+        )}>
           {error ? (
              <div className="h-full flex flex-col items-center justify-center text-red-500">
                <span className="font-semibold">Error Loading Data</span>
@@ -364,7 +395,10 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
 
         {/* Right: Market Data (Scrollable) */}
         <div 
-          className="w-[30%] flex flex-col h-full bg-white"
+          className={cn(
+            "w-full md:w-[30%] flex-col h-full bg-white",
+            activeTab === 'data' ? 'flex' : 'hidden md:flex'
+          )}
           onMouseEnter={() => isHoveringSidebar.current = true}
           onMouseLeave={() => isHoveringSidebar.current = false}
         >

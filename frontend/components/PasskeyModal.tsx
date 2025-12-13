@@ -29,7 +29,7 @@ export const PasskeyModal: React.FC<PasskeyModalProps> = ({ onSave }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-background border border-border rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+      <div className="bg-background border border-border rounded-xl shadow-xl w-[90%] md:w-full max-w-md p-6">
         <h2 className="text-2xl font-bold mb-2">Enter Passkey</h2>
         <p className="text-sm text-muted-foreground mb-6">
           A passkey is required to authenticate with the API. Please enter your passkey to continue.

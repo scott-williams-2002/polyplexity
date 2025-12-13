@@ -4,16 +4,85 @@ import { InputArea } from './components/InputArea';
 import { PasskeyModal } from './components/PasskeyModal';
 import { Message } from './types';
 import { generateId } from './lib/utils';
-import { MessageSquare, Trash2 } from './components/ui/Icons';
+import { MessageSquare, Trash2, Menu, X } from './components/ui/Icons';
 import { useChatStream } from './hooks/useChatStream';
 import { useThreads } from './hooks/useThreads';
 import { getThreadHistory } from './lib/api';
 import { apiMessageToViteMessage, sourceToReferenceSource, parseMarkdownLinks } from './lib/adapters';
 import { hasApiKey } from '@/lib/auth';
 
+const SidebarContent = ({
+  onNewThread,
+  loading,
+  threads,
+  activeThreadId,
+  onSelectThread,
+  onDeleteThread
+}: {
+  onNewThread: () => void;
+  loading: boolean;
+  threads: any[];
+  activeThreadId: string | null;
+  onSelectThread: (id: string) => void;
+  onDeleteThread: (e: React.MouseEvent, id: string) => void;
+}) => (
+  <>
+    <button
+      onClick={onNewThread}
+      className="flex items-center gap-2 w-full px-4 py-3 bg-muted/50 hover:bg-muted text-sm font-medium rounded-full mb-4 transition-colors text-left border border-transparent hover:border-border"
+    >
+      <div className="w-4 h-4 rounded-full border border-current opacity-60" />
+      <span>New Thread</span>
+    </button>
+
+    <div className="flex-1 overflow-y-auto">
+      <div className="text-xs font-semibold text-muted-foreground mb-3 px-2">Library</div>
+      {loading ? (
+        <div className="text-sm text-muted-foreground px-2">Loading threads...</div>
+      ) : threads.length === 0 ? (
+        <div className="text-sm text-muted-foreground px-2">No threads yet</div>
+      ) : (
+        <div className="space-y-1">
+          {threads.map((thread) => (
+            <div
+              key={thread.thread_id}
+              onClick={() => onSelectThread(thread.thread_id)}
+              className={`flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-muted cursor-pointer transition-colors group ${
+                activeThreadId === thread.thread_id ? "bg-muted" : ""
+              }`}
+            >
+              <MessageSquare className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
+              <span className="truncate flex-1 opacity-80 group-hover:opacity-100">
+                {thread.name || thread.last_message || "Untitled Thread"}
+              </span>
+              <button
+                onClick={(e) => onDeleteThread(e, thread.thread_id)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted-foreground/10 rounded"
+              >
+                <Trash2 className="w-3 h-3 text-muted-foreground" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    <div className="mt-auto border-t border-border pt-4">
+      <div className="flex items-center gap-3 px-2">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-cyan-400" />
+        <div className="text-sm">
+          <div className="font-medium">User</div>
+          <div className="text-xs text-muted-foreground">Pro Member</div>
+        </div>
+      </div>
+    </div>
+  </>
+);
+
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [apiKeySet, setApiKeySet] = useState<boolean>(false);
   const loadedThreadIdRef = useRef<string | null>(null);
@@ -249,10 +318,12 @@ export default function App() {
     setThreadId(null);
     setMessages([]);
     resetStream();
+    setIsMobileSidebarOpen(false);
   }, [resetStream]);
 
   const handleThreadSelect = useCallback((selectedThreadId: string) => {
     setThreadId(selectedThreadId);
+    setIsMobileSidebarOpen(false);
   }, []);
 
   const handleDeleteThreadClick = useCallback(
@@ -281,7 +352,7 @@ export default function App() {
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
       
-      {/* Sidebar */}
+      {/* Sidebar (Desktop) */}
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-muted/10 p-4">
         <div className="flex items-center gap-2 mb-6 px-2">
            <img src="https://storage.googleapis.com/polycommand-ui/polyplexity_ui/logo.jpeg" alt="PolyPlexity" className="w-12 h-12 rounded-lg object-cover" />
@@ -290,65 +361,68 @@ export default function App() {
            </span>
         </div>
         
-        <button
-          onClick={handleNewThread}
-          className="flex items-center gap-2 w-full px-4 py-3 bg-muted/50 hover:bg-muted text-sm font-medium rounded-full mb-4 transition-colors text-left border border-transparent hover:border-border"
-        >
-          <div className="w-4 h-4 rounded-full border border-current opacity-60" />
-          <span>New Thread</span>
-        </button>
-
-        <div className="flex-1 overflow-y-auto">
-          <div className="text-xs font-semibold text-muted-foreground mb-3 px-2">Library</div>
-          {threadsLoading ? (
-            <div className="text-sm text-muted-foreground px-2">Loading threads...</div>
-          ) : threads.length === 0 ? (
-            <div className="text-sm text-muted-foreground px-2">No threads yet</div>
-          ) : (
-            <div className="space-y-1">
-              {threads.map((thread) => (
-                <div
-                  key={thread.thread_id}
-                  onClick={() => handleThreadSelect(thread.thread_id)}
-                  className={`flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-muted cursor-pointer transition-colors group ${
-                    threadId === thread.thread_id ? "bg-muted" : ""
-                  }`}
-                >
-                  <MessageSquare className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
-                  <span className="truncate flex-1 opacity-80 group-hover:opacity-100">
-                    {thread.name || thread.last_message || "Untitled Thread"}
-                  </span>
-                  <button
-                    onClick={(e) => handleDeleteThreadClick(e, thread.thread_id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted-foreground/10 rounded"
-                  >
-                    <Trash2 className="w-3 h-3 text-muted-foreground" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        
-        <div className="mt-auto border-t border-border pt-4">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-cyan-400" />
-            <div className="text-sm">
-              <div className="font-medium">User</div>
-              <div className="text-xs text-muted-foreground">Pro Member</div>
-            </div>
-          </div>
-        </div>
+        <SidebarContent 
+          onNewThread={handleNewThread}
+          loading={threadsLoading}
+          threads={threads}
+          activeThreadId={threadId}
+          onSelectThread={handleThreadSelect}
+          onDeleteThread={handleDeleteThreadClick}
+        />
       </aside>
+
+      {/* Sidebar (Mobile) */}
+      {isMobileSidebarOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+          <aside className="relative w-64 h-full flex flex-col border-r border-border bg-background p-4 animate-in slide-in-from-left duration-200 shadow-xl">
+            <div className="flex items-center justify-between mb-6 px-2">
+               <div className="flex items-center gap-2">
+                 <img src="https://storage.googleapis.com/polycommand-ui/polyplexity_ui/logo.jpeg" alt="PolyPlexity" className="w-8 h-8 rounded-lg object-cover" />
+                 <span className="font-bold text-lg tracking-tight">
+                   <span className="text-purple-400">Poly</span><span className="text-black">Plexity</span>
+                 </span>
+               </div>
+               <button onClick={() => setIsMobileSidebarOpen(false)} className="p-1 -mr-1 text-muted-foreground hover:text-foreground">
+                 <X className="w-5 h-5" />
+               </button>
+            </div>
+            
+            <SidebarContent 
+              onNewThread={handleNewThread}
+              loading={threadsLoading}
+              threads={threads}
+              activeThreadId={threadId}
+              onSelectThread={handleThreadSelect}
+              onDeleteThread={handleDeleteThreadClick}
+            />
+          </aside>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col relative h-full">
         {/* Header (Mobile) */}
-        <header className="md:hidden flex items-center justify-center gap-2 h-14 border-b border-border bg-background/50 backdrop-blur-sm sticky top-0 z-40">
-           <img src="https://storage.googleapis.com/polycommand-ui/polyplexity_ui/logo.jpeg" alt="PolyPlexity" className="w-9 h-9 rounded-lg object-cover" />
-           <span className="font-semibold">
-             <span className="text-purple-400">Poly</span><span className="text-black">Plexity</span>
-           </span>
+        <header className="md:hidden flex items-center justify-between px-4 h-14 border-b border-border bg-background/50 backdrop-blur-sm sticky top-0 z-40">
+           <button 
+             onClick={() => setIsMobileSidebarOpen(true)} 
+             className="p-2 -ml-2 text-muted-foreground hover:text-foreground active:bg-muted rounded-md transition-colors"
+             aria-label="Open menu"
+           >
+             <Menu className="w-5 h-5" />
+           </button>
+           
+           <div className="flex items-center gap-2 absolute left-1/2 -translate-x-1/2">
+             <img src="https://storage.googleapis.com/polycommand-ui/polyplexity_ui/logo.jpeg" alt="PolyPlexity" className="w-8 h-8 rounded-lg object-cover" />
+             <span className="font-semibold text-sm">
+               <span className="text-purple-400">Poly</span><span className="text-black">Plexity</span>
+             </span>
+           </div>
+           
+           <div className="w-9" /> {/* Spacer for centering */}
         </header>
 
         <ChatInterface messages={messages} isGenerating={isStreaming} />
