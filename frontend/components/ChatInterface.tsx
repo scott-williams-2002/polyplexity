@@ -20,8 +20,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, isGenera
   }, [messages.length, messages[messages.length - 1]?.content]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-8 scroll-smooth">
-      <div className="max-w-4xl mx-auto min-h-full">
+    <div className="flex-1 overflow-y-auto px-2 md:px-4 py-8 scroll-smooth">
+      <div className="max-w-full md:max-w-4xl mx-auto min-h-full">
         
         {messages.length === 0 ? (
           <EmptyState />

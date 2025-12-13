@@ -276,7 +276,7 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
             href={buildEventUrl(market.eventSlug)}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-lg md:text-xl font-bold text-foreground tracking-tight leading-tight truncate hover:text-primary hover:underline transition-colors cursor-pointer block"
+            className="text-sm md:text-xl font-bold text-foreground tracking-tight leading-tight break-words hover:text-primary hover:underline transition-colors cursor-pointer block"
             title={`View on Polymarket: ${market.question}`}
           >
             {market.question}
@@ -285,10 +285,10 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
         
         <div className="flex items-center md:items-end gap-4 md:gap-6 w-full md:w-auto justify-between md:justify-end">
            <div className="text-left md:text-right">
-            <div className="text-muted-foreground text-xs mb-1 font-mono">
+            <div className="text-muted-foreground text-[10px] md:text-xs mb-1 font-mono">
               {hoveredDate ? format(new Date(hoveredDate * 1000), 'MMM d, yyyy h:mm a') : 'Current Value'}
             </div>
-            <div className={`text-2xl md:text-3xl font-mono font-bold text-foreground tracking-tight`}>
+            <div className={`text-xl md:text-3xl font-mono font-bold text-foreground tracking-tight`}>
               {(displayPrice * 100).toFixed(1)}¢
             </div>
           </div>
@@ -404,9 +404,9 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
           onMouseLeave={() => isHoveringSidebar.current = false}
         >
           {/* Static Header */}
-          <div className="px-5 py-4 border-b border-border bg-white shrink-0">
-             <h3 className="text-sm font-semibold text-foreground">Market Data</h3>
-             <p className="text-xs text-muted-foreground mt-0.5">Outcomes and details</p>
+          <div className="px-3 md:px-5 py-3 md:py-4 border-b border-border bg-white shrink-0">
+             <h3 className="text-xs md:text-sm font-semibold text-foreground">Market Data</h3>
+             <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">Outcomes and details</p>
           </div>
           
           {/* Scrollable List */}
@@ -419,9 +419,9 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
               <div className="rounded-lg bg-muted/30 border border-border/50 overflow-hidden">
                 <button
                   onClick={() => setIsDescriptionOpen(!isDescriptionOpen)}
-                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/40 transition-colors"
+                  className="w-full px-3 md:px-4 py-2 md:py-3 flex items-center justify-between hover:bg-muted/40 transition-colors"
                 >
-                  <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                  <h4 className="text-[10px] md:text-xs font-semibold text-foreground uppercase tracking-wider">
                     Market Rules
                   </h4>
                   <svg
@@ -446,8 +446,8 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
                     isDescriptionOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
                   }`}
                 >
-                  <div className="px-4 pb-4 pt-2">
-                    <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                  <div className="px-3 md:px-4 pb-3 md:pb-4 pt-2">
+                    <p className="text-[10px] md:text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
                       {market.description}
                     </p>
                   </div>
@@ -475,12 +475,12 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
                   key={tokenData.clobTokenId}
                   // @ts-ignore
                   ref={(el) => (tokenRefs.current[tokenData.clobTokenId] = el)}
-                  className={`
-                    relative px-5 py-4 rounded-2xl transition-all duration-300 ease-out cursor-pointer
-                    ${isActive 
+                  className={cn(
+                    "relative px-3 md:px-5 py-3 md:py-4 rounded-xl md:rounded-2xl transition-all duration-300 ease-out cursor-pointer",
+                    isActive 
                       ? 'bg-muted/70 shadow-lg border-2 border-border' 
-                      : 'bg-white hover:bg-muted/30 border border-transparent'}
-                  `}
+                      : 'bg-white hover:bg-muted/30 border border-transparent'
+                  )}
                   onMouseEnter={() => {
                     setHoveredClobTokenId(tokenData.clobTokenId);
                     if (tokenData.data.length > 0) {
@@ -512,25 +512,25 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
                   )}
 
                   <div className="flex justify-between items-baseline mb-2">
-                    <span className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                    <span className="text-[10px] md:text-xs font-semibold text-foreground uppercase tracking-wider">
                       {tokenData.outcome}
                     </span>
                     {isActive && (
                       <div 
-                        className="w-3 h-3 rounded-full"
+                        className="w-2 h-2 md:w-3 md:h-3 rounded-full"
                         style={{ backgroundColor: tokenData.color.stroke }}
                       />
                     )}
                   </div>
                   
                   <div className="space-y-1">
-                    <div className="text-lg font-mono font-bold text-foreground">
+                    <div className="text-base md:text-lg font-mono font-bold text-foreground">
                       {(outcomePrice * 100).toFixed(1)}¢
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-[10px] md:text-xs text-muted-foreground">
                       Current: {(currentPrice * 100).toFixed(1)}¢
                     </div>
-                    <div className="text-[10px] font-mono text-muted-foreground mt-2">
+                    <div className="text-[9px] md:text-[10px] font-mono text-muted-foreground mt-2">
                       {tokenData.clobTokenId.slice(0, 8)}...
                     </div>
                   </div>

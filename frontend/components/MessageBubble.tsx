@@ -60,8 +60,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
 
   if (isUser) {
     return (
-      <div className="flex justify-end mb-8">
-        <div className="bg-muted/50 text-foreground px-5 py-3 rounded-2xl max-w-[80%] text-base sm:text-lg">
+      <div className="flex justify-end mb-8 px-2 md:px-0">
+        <div className="bg-muted/50 text-foreground px-4 md:px-5 py-3 rounded-2xl max-w-[85%] md:max-w-[80%] text-sm md:text-base sm:text-lg">
           {message.content}
         </div>
       </div>
@@ -78,7 +78,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
   }, [message.content, message.isStreaming, message.stage]);
 
   return (
-    <div className="flex flex-col mb-10 w-full max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="flex flex-col mb-10 w-full max-w-full md:max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 px-2 md:px-0">
       
       {/* Header Section: Reasoning + Sources (Fixed during streaming, scrollable when completed) */}
       <div className={`${shouldBeSticky ? 'sticky top-0 z-10' : ''} bg-background/95 backdrop-blur-sm border-b border-border pb-4 mb-4 flex-shrink-0`}>
