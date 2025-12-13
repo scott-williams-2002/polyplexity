@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { setApiKey } from '../lib/auth';
+import { setApiKey } from '@/lib/auth';
 
 interface PasskeyModalProps {
   onSave: () => void;

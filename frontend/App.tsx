@@ -9,7 +9,7 @@ import { useChatStream } from './hooks/useChatStream';
 import { useThreads } from './hooks/useThreads';
 import { getThreadHistory } from './lib/api';
 import { apiMessageToViteMessage, sourceToReferenceSource, parseMarkdownLinks } from './lib/adapters';
-import { hasApiKey } from './lib/auth';
+import { hasApiKey } from '@/lib/auth';
 
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
