@@ -2,15 +2,34 @@
  * API client for backend communication
  */
 import { ThreadInfo, SSEEvent, ApiMessage } from "../types";
+import { getApiKey } from "./auth";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+/**
+ * Get headers with Authorization Bearer token if API key exists
+ */
+function getHeaders(additionalHeaders: Record<string, string> = {}): HeadersInit {
+  const headers: Record<string, string> = {
+    ...additionalHeaders,
+  };
+  
+  const apiKey = getApiKey();
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+  
+  return headers;
+}
 
 /**
  * Fetch all conversation threads
  */
 export async function fetchThreads(): Promise<ThreadInfo[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/threads`);
+    const response = await fetch(`${API_BASE_URL}/threads`, {
+      headers: getHeaders(),
+    });
     if (!response.ok) {
       throw new Error(`Failed to fetch threads: ${response.statusText}`);
     }
@@ -39,10 +58,10 @@ export async function streamChat(
     console.log('[SSE] Sending request to:', url.toString());
     response = await fetch(url.toString(), {
       method: 'POST',
-      headers: {
+      headers: getHeaders({
         'Content-Type': 'application/json',
         'Accept': 'text/event-stream',
-      },
+      }),
       body: JSON.stringify({ query: message }),
     });
   } catch (error) {
@@ -138,6 +157,7 @@ export async function deleteThread(threadId: string): Promise<boolean> {
   try {
     const response = await fetch(`${API_BASE_URL}/threads/${threadId}`, {
       method: 'DELETE',
+      headers: getHeaders(),
     });
     
     // Check for success status codes (204 No Content or 200 OK)
@@ -176,7 +196,9 @@ export async function deleteThread(threadId: string): Promise<boolean> {
  */
 export async function getThreadHistory(threadId: string): Promise<ApiMessage[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/threads/${threadId}/history`);
+    const response = await fetch(`${API_BASE_URL}/threads/${threadId}/history`, {
+      headers: getHeaders(),
+    });
     
     if (!response.ok) {
       if (response.status === 404) {
@@ -204,7 +226,9 @@ export async function getThreadHistory(threadId: string): Promise<ApiMessage[]> 
  */
 export async function healthCheck(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/health`);
+    const response = await fetch(`${API_BASE_URL}/health`, {
+      headers: getHeaders(),
+    });
     return response.ok;
   } catch (error) {
     console.error('Health check failed:', error);

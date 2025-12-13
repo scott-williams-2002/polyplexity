@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChatInterface } from './components/ChatInterface';
 import { InputArea } from './components/InputArea';
+import { PasskeyModal } from './components/PasskeyModal';
 import { Message } from './types';
 import { generateId } from './lib/utils';
 import { MessageSquare, Trash2 } from './components/ui/Icons';
@@ -8,12 +9,19 @@ import { useChatStream } from './hooks/useChatStream';
 import { useThreads } from './hooks/useThreads';
 import { getThreadHistory } from './lib/api';
 import { apiMessageToViteMessage, sourceToReferenceSource, parseMarkdownLinks } from './lib/adapters';
+import { hasApiKey } from './lib/auth';
 
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [apiKeySet, setApiKeySet] = useState<boolean>(false);
   const loadedThreadIdRef = useRef<string | null>(null);
+
+  // Check API key status on mount
+  useEffect(() => {
+    setApiKeySet(hasApiKey());
+  }, []);
 
   const {
     isStreaming,
@@ -260,6 +268,15 @@ export default function App() {
     },
     [threadId, handleDeleteThread]
   );
+
+  const handlePasskeySave = useCallback(() => {
+    setApiKeySet(true);
+  }, []);
+
+  // Show blocking modal if API key is not set
+  if (!apiKeySet) {
+    return <PasskeyModal onSave={handlePasskeySave} />;
+  }
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
