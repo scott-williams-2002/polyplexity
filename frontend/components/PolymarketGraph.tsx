@@ -238,10 +238,10 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
   }, [chartData, tokenDataList]);
 
   return (
-    <div className="flex flex-col w-full h-[350px] bg-white border border-border rounded-xl shadow-sm overflow-hidden ring-1 ring-border/50">
+    <div className="flex flex-col w-full h-[300px] md:h-[350px] bg-white border border-border rounded-xl shadow-sm overflow-hidden ring-1 ring-border/50">
       
       {/* 1. Header Section */}
-      <div className="flex-none px-4 md:px-6 py-4 md:py-5 border-b border-border bg-white flex flex-col md:flex-row justify-between items-start md:items-end gap-4 md:gap-0 z-10">
+      <div className="flex-none px-3 md:px-6 py-3 md:py-5 border-b border-border bg-white flex flex-col md:flex-row justify-between items-start md:items-end gap-3 md:gap-0 z-10">
         <div className="flex-1 min-w-0 w-full">
           <div className="flex justify-between items-start mb-1.5">
             <h2 className="text-primary text-[10px] uppercase font-bold tracking-widest flex items-center gap-2">
@@ -314,7 +314,7 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
         
         {/* Left: Chart Area */}
         <div className={cn(
-          "w-full md:w-[70%] h-full relative md:border-r border-border bg-white p-2",
+          "w-full md:w-[70%] h-full relative md:border-r border-border bg-white p-1 md:p-2",
           activeTab === 'chart' ? 'block' : 'hidden md:block'
         )}>
           {error ? (
@@ -328,7 +328,7 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
                 data={chartData}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
-                margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
               >
                 <defs>
                   {tokenDataList.map((tokenData, idx) => (
@@ -343,22 +343,23 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
                   dataKey="t" 
                   tickFormatter={(unix) => format(new Date(unix * 1000), 'MMM d')}
                   stroke="#d4d4d8"
-                  tick={{ fill: '#71717a', fontSize: 10, fontFamily: 'Inter' }}
-                  minTickGap={50}
+                  tick={{ fill: '#71717a', fontSize: 8, fontFamily: 'Inter' }}
+                  minTickGap={30}
                   axisLine={false}
                   tickLine={false}
-                  dy={10}
+                  dy={5}
                 />
                 <YAxis 
                   domain={yDomain} 
                   hide={false}
                   orientation="right"
                   stroke="#d4d4d8"
-                  tick={{ fill: '#71717a', fontSize: 10, fontFamily: 'Inter' }}
+                  tick={{ fill: '#71717a', fontSize: 8, fontFamily: 'Inter' }}
                   tickFormatter={(val) => `${(val * 100).toFixed(0)}¢`}
                   axisLine={false}
                   tickLine={false}
                   dx={-5}
+                  width={35}
                 />
                 <Tooltip
                   content={() => null} 
@@ -411,7 +412,7 @@ const PolymarketChart: React.FC<PolymarketChartProps> = ({ market }) => {
           {/* Scrollable List */}
           <div 
             ref={sidebarRef}
-            className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar"
+            className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4 custom-scrollbar"
           >
             {/* Market Description Dropdown */}
             {market.description && (
