@@ -4,7 +4,7 @@
 import { ThreadInfo, SSEEvent, ApiMessage } from "../types";
 import { getApiKey } from "./auth";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://freshair.dev/api';
 
 /**
  * Get headers with Authorization Bearer token if API key exists
