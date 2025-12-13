@@ -267,7 +267,7 @@ export default function App() {
       {/* Sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-muted/10 p-4">
         <div className="flex items-center gap-2 mb-6 px-2">
-           <img src="/logo.jpeg" alt="PolyPlexity" className="w-12 h-12 rounded-lg object-cover" />
+           <img src="https://storage.googleapis.com/polycommand-ui/polyplexity_ui/logo.jpeg" alt="PolyPlexity" className="w-12 h-12 rounded-lg object-cover" />
            <span className="font-bold text-lg tracking-tight">
              <span className="text-purple-400">Poly</span><span className="text-black">Plexity</span>
            </span>
@@ -328,7 +328,7 @@ export default function App() {
       <main className="flex-1 flex flex-col relative h-full">
         {/* Header (Mobile) */}
         <header className="md:hidden flex items-center justify-center gap-2 h-14 border-b border-border bg-background/50 backdrop-blur-sm sticky top-0 z-40">
-           <img src="/logo.jpeg" alt="PolyPlexity" className="w-9 h-9 rounded-lg object-cover" />
+           <img src="https://storage.googleapis.com/polycommand-ui/polyplexity_ui/logo.jpeg" alt="PolyPlexity" className="w-9 h-9 rounded-lg object-cover" />
            <span className="font-semibold">
              <span className="text-purple-400">Poly</span><span className="text-black">Plexity</span>
            </span>
